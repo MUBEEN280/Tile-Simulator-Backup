@@ -14,13 +14,10 @@ export const TileSimulatorProvider = ({ children }) => {
     const savedSize = localStorage.getItem("selectedSize");
     return savedSize || "8x8";
   });
-  const [selectedEnvironment, setSelectedEnvironment] = useState("bedroom");
+  const [selectedEnvironment, setSelectedEnvironment] = useState(null);
   const [groutColor, setGroutColor] = useState("#f5f5f5");
   const [groutThickness, setGroutThickness] = useState("none");
-  const [selectedTile, setSelectedTile] = useState(() => {
-    const savedTile = localStorage.getItem("selectedTile");
-    return savedTile ? JSON.parse(savedTile) : null;
-  });
+  const [selectedTile, setSelectedTile] = useState(null);
   const [selectedColor, setSelectedColor] = useState(() => {
     const savedColor = localStorage.getItem("selectedColor");
     return savedColor || null;

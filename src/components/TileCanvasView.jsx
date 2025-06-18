@@ -36,9 +36,9 @@ const TileCanvasView = () => {
   const [blockRotations, setBlockRotations] = useState([0, 0, 0, 0]);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-  const currentEnv = environments.find(
+  const currentEnv = selectedEnvironment ? environments.find(
     (env) => env.label === selectedEnvironment
-  );
+  ) : null;
 
   const gridSize = selectedSize === "8x8" ? 8 : 12;
   const totalTiles = gridSize * gridSize;
@@ -86,12 +86,47 @@ const TileCanvasView = () => {
 
   if (!selectedTile) {
     return (
-      <div className="w-full mx-auto p-4">
+      <div className="w-full mx-auto lg:mx-0 p-1">
         <h2 className="font-poppins font-semibold tracking-wide text-lg mb-2">
           TILE Preview
         </h2>
-        <div className="text-center lg:text-left font-light font-poppins text-gray-500">
-          Select a tile to preview
+        <div 
+          className="w-full rounded shadow flex items-start justify-center relative"
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            width: `${containerWidth}px`,
+            height: currentEnv ? "auto" : "300px",
+            maxWidth: "100%",
+            margin: "0 auto",
+            backgroundColor: "#f5f5f5",
+            border: "2px dashed #ccc"
+          }}
+        >
+          {!currentEnv && (
+            <p className="text-gray-500 text-lg font-medium mt-5 z-10">Please select a tile first</p>
+          )}
+          
+          {/* Environment Image */}
+          {currentEnv && (
+            <>
+              <img
+                src={currentEnv.image}
+                alt="Room preview"
+                className="w-full h-auto object-cover"
+                style={{
+                  zIndex: 1,
+                  position: "relative"
+                }}
+              />
+              <button
+                onClick={() => setSelectedEnvironment(null)}
+                className="absolute top-3 right-3 bg-black bg-opacity-70 text-white rounded-full p-1 z-20 hover:ring-2 hover:ring-[#bd5b4c] hover:shadow-md hover:shadow-[#bd5b4c] transition-all duration-300 ease-in-out"
+              >
+                <IoMdClose size={20} />
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
