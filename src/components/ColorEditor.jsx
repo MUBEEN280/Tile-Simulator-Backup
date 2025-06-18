@@ -112,7 +112,10 @@ const ColorEditor = ({ tile }) => {
     // Add colors from masks
     tileMasks.forEach((mask) => {
       if (mask.color) {
-        colorSet.add(mask.color);
+        const colorValue = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+        if (colorValue) {
+          colorSet.add(colorValue);
+        }
       }
     });
 
@@ -127,7 +130,11 @@ const ColorEditor = ({ tile }) => {
   // When a color is clicked, select the first mask with that color
   const handleColorClick = (color) => {
     // First try to find a tile mask with this color
-    const maskWithColor = tileMasks.find((mask) => mask.color === color);
+    const maskWithColor = tileMasks.find((mask) => {
+      const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+      return maskColor === color;
+    });
+    
     if (maskWithColor) {
       setSelectedMaskId(maskWithColor.id);
       setSelectedBorderMaskId(null);
@@ -135,7 +142,11 @@ const ColorEditor = ({ tile }) => {
     }
 
     // If no tile mask found, try to find a border mask with this color
-    const borderMaskWithColor = borderMasks?.find((mask) => mask.color === color);
+    const borderMaskWithColor = borderMasks?.find((mask) => {
+      const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+      return maskColor === color;
+    });
+    
     if (borderMaskWithColor) {
       setSelectedBorderMaskId(borderMaskWithColor.maskId);
       setSelectedMaskId(null);
@@ -161,6 +172,12 @@ const ColorEditor = ({ tile }) => {
         setBorderMaskColor(selectedBorderMaskId, paletteColor);
       } else if (selectedMaskId) {
         setTileMaskColor(selectedMaskId, paletteColor);
+      } else {
+        // If no mask is selected, select the first mask and apply the color
+        if (tileMasks && tileMasks.length > 0) {
+          setSelectedMaskId(tileMasks[0].id);
+          setTileMaskColor(tileMasks[0].id, paletteColor);
+        }
       }
       setPreviewMode(false);
       setHoveredPaletteColor(null);
@@ -192,27 +209,33 @@ const ColorEditor = ({ tile }) => {
           Colors Used
         </div>
         <div className="flex flex-wrap gap-3">
-          {getUniqueColors().map((color) => (
-            <button
-              key={color}
-              className={`w-6 h-6 transition-all duration-300 ease-in-out transform hover:scale-110
-                ${selectedMaskColor === color || selectedColor === color
-                  ? "rounded-md ring-2 ring-[#bd5b4c]"
-                  : "rounded-full hover:rounded-full hover:ring-1 hover:ring-[#bd5b4c]"
-                }`}
-              style={{ backgroundColor: color }}
-              title={color}
-              onClick={() => handleColorClick(color)}
-              onMouseEnter={() => {
-                setPreviewMode(true);
-                setHoveredPaletteColor(color);
-              }}
-              onMouseLeave={() => {
-                setPreviewMode(false);
-                setHoveredPaletteColor(null);
-              }}
-            />
-          ))}
+          {getUniqueColors().map((color) => {
+            const isSelected = selectedMaskId && tileMasks.find(mask => {
+              const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+              return mask.id === selectedMaskId && maskColor === color;
+            });
+            return (
+              <button
+                key={color}
+                className={`w-6 h-6 transition-all duration-300 ease-in-out transform hover:scale-110
+                  ${isSelected
+                    ? "rounded-md ring-2 ring-[#bd5b4c]"
+                    : "rounded-full hover:rounded-full hover:ring-1 hover:ring-[#bd5b4c]"
+                  }`}
+                style={{ backgroundColor: color }}
+                title={color}
+                onClick={() => handleColorClick(color)}
+                onMouseEnter={() => {
+                  setPreviewMode(true);
+                  setHoveredPaletteColor(color);
+                }}
+                onMouseLeave={() => {
+                  setPreviewMode(false);
+                  setHoveredPaletteColor(null);
+                }}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -228,7 +251,10 @@ const ColorEditor = ({ tile }) => {
           {colorRows.slice(0, visibleRows).map((row, rowIndex) => (
             <div key={rowIndex} className="flex gap-2">
               {row.map((paletteColor, index) => {
-                const isActive = selectedMaskColor === paletteColor || selectedColor === paletteColor;
+                const isActive = selectedMaskId && tileMasks.find(mask => {
+                  const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                  return mask.id === selectedMaskId && maskColor === paletteColor;
+                });
                 const isHovered = hoveredPaletteColor === paletteColor;
                 return (
                   <button

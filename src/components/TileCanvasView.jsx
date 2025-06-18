@@ -28,7 +28,6 @@ const TileCanvasView = () => {
     setSelectedEnvironment,
     groutColor,
     groutThickness,
-    subMasks,
     borderMasks,
     selectedBorder,
     rotateBlock,
@@ -183,32 +182,36 @@ const TileCanvasView = () => {
                         )}
 
                         {/* Tile Masks */}
-                        {subMasks?.map((mask) => (
-                          <div
-                            key={mask.id}
-                            className="absolute inset-0"
-                            style={{
-                              backgroundColor: mask.color,
-                              maskImage: mask.image
-                                ? `url(${mask.image})`
-                                : "none",
-                              WebkitMaskImage: mask.image
-                                ? `url(${mask.image})`
-                                : "none",
-                              maskSize: "cover",
-                              WebkitMaskSize: "cover",
-                              maskPosition: "center",
-                              WebkitMaskPosition: "center",
-                              maskRepeat: "no-repeat",
-                              WebkitMaskRepeat: "no-repeat",
-                              transform: `scale(2)`,
-                              transformOrigin: `${
-                                index % 2 === 0 ? "0" : "100%"
-                              } ${index < gridSize ? "0" : "100%"}`,
-                              zIndex: 1,
-                            }}
-                          />
-                        ))}
+                        {selectedTile?.subMasks?.map((mask) => {
+                          const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                          return (
+                            <div
+                              key={mask.id}
+                              data-mask-id={mask.id}
+                              className="absolute inset-0"
+                              style={{
+                                backgroundColor: maskColor || '#ffffff',
+                                maskImage: mask.image
+                                  ? `url(${mask.image})`
+                                  : "none",
+                                WebkitMaskImage: mask.image
+                                  ? `url(${mask.image})`
+                                  : "none",
+                                maskSize: "cover",
+                                WebkitMaskSize: "cover",
+                                maskPosition: "center",
+                                WebkitMaskPosition: "center",
+                                maskRepeat: "no-repeat",
+                                WebkitMaskRepeat: "no-repeat",
+                                transform: `scale(2)`,
+                                transformOrigin: `${
+                                  index % 2 === 0 ? "0" : "100%"
+                                } ${index < gridSize ? "0" : "100%"}`,
+                                zIndex: 1,
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -220,9 +223,10 @@ const TileCanvasView = () => {
                 borderMasks?.map((mask) => (
                   <div
                     key={mask.maskId}
+                    data-mask-id={mask.maskId}
                     className="absolute inset-0"
                     style={{
-                      backgroundColor: mask.color,
+                      backgroundColor: typeof mask.color === 'object' ? mask.color.hexCode || '#ffffff' : mask.color,
                       maskImage: mask.image ? `url(${mask.image})` : "none",
                       WebkitMaskImage: mask.image
                         ? `url(${mask.image})`
@@ -278,7 +282,7 @@ const TileCanvasView = () => {
         tileConfig={{
           tile: {
             ...selectedTile,
-            masks: subMasks
+            masks: selectedTile?.subMasks
           },
           color: selectedColor,
           size: selectedSize,
