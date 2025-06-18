@@ -26,6 +26,10 @@ export const TileSimulatorProvider = ({ children }) => {
   const [borderMasks, setBorderMasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedMaskId, setSelectedMaskId] = useState(null);
+  const [selectedBorderMaskId, setSelectedBorderMaskId] = useState(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [hoveredPaletteColor, setHoveredPaletteColor] = useState(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -119,27 +123,122 @@ export const TileSimulatorProvider = ({ children }) => {
 
   const handleTileSelect = (tile) => {
     setSelectedTile(tile);
+    // Initialize tileMasks with the selected tile's subMasks
+    if (tile && tile.subMasks) {
+      setTileMasks(tile.subMasks.map(mask => ({
+        id: mask.id,
+        image: mask.image,
+        color: mask.color,
+        publicId: mask.publicId
+      })));
+    } else {
+      setTileMasks([]);
+    }
     localStorage.setItem("selectedTile", JSON.stringify(tile));
   };
 
-  const setTileMaskColor = (maskId, color) => {
+  const setTileMaskColor = (maskId, newColor) => {
+    // Get the old color before updating
+    const oldColor = tileMasks.find(mask => mask.id === maskId)?.color;
+    const oldColorHex = typeof oldColor === 'object' ? oldColor.hexCode : oldColor;
+
+    // Update tileMasks
     setTileMasks(prevMasks =>
       prevMasks.map(mask =>
-        mask.id === maskId ? { ...mask, color } : mask
+        mask.id === maskId ? { ...mask, color: newColor } : mask
       )
     );
+
+    // Update selectedTile's subMasks
+    setSelectedTile(prevTile => {
+      if (!prevTile) return prevTile;
+      return {
+        ...prevTile,
+        subMasks: prevTile.subMasks.map(mask =>
+          mask.id === maskId ? { ...mask, color: newColor } : mask
+        ),
+        // Update colorsUsed array by replacing the old color with the new one
+        colorsUsed: prevTile.colorsUsed.map(colorId => {
+          // If this color ID corresponds to the old color, replace it with the new color
+          if (colorId === oldColorHex) {
+            return newColor;
+          }
+          return colorId;
+        })
+      };
+    });
   };
 
   const handleBorderSelect = (border) => {
     setSelectedBorder(border);
   };
 
-  const setBorderMaskColor = (maskId, color) => {
+  const setBorderMaskColor = (maskId, newColor) => {
+    // Get the old color before updating
+    const oldColor = borderMasks.find(mask => mask.maskId === maskId)?.color;
+    const oldColorHex = typeof oldColor === 'object' ? oldColor.hexCode : oldColor;
+    
+    // Update borderMasks
     setBorderMasks(prevMasks =>
       prevMasks.map(mask =>
-        mask.id === maskId ? { ...mask, color } : mask
+        mask.maskId === maskId ? { ...mask, color: newColor } : mask
       )
     );
+
+    // Update selectedTile's colorsUsed if it exists
+    setSelectedTile(prevTile => {
+      if (!prevTile) return prevTile;
+      return {
+        ...prevTile,
+        colorsUsed: prevTile.colorsUsed.map(colorId => {
+          // If this color ID corresponds to the old color, replace it with the new color
+          if (colorId === oldColorHex) {
+            return newColor;
+          }
+          return colorId;
+        })
+      };
+    });
+  };
+
+  const handleTileClick = (tile) => {
+    if (selectedCategory === "Border Collection") {
+      setSelectedBorder(tile.image);
+    } else {
+      handleTileSelect(tile);
+      if (onSelectTile) {
+        onSelectTile(tile);
+      }
+    }
+  };
+
+  const handlePaletteColorSelect = async (paletteColor) => {
+    try {
+      if (selectedBorderMaskId) {
+        setBorderMaskColor(selectedBorderMaskId, paletteColor);
+      } else if (selectedMaskId) {
+        setTileMaskColor(selectedMaskId, paletteColor);
+      }
+      setPreviewMode(false);
+      setHoveredPaletteColor(null);
+    } catch (error) {
+      console.error("Failed to apply color:", error);
+    }
+  };
+
+  const handleColorClick = (color) => {
+    // First try to find a tile mask with this color
+    const maskWithColor = tileMasks.find((mask) => {
+      const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+      return maskColor === color;
+    });
+    
+    if (maskWithColor) {
+      setSelectedMaskId(maskWithColor.id);
+      setSelectedBorderMaskId(null);
+      return;
+    }
+    // ... similar logic for border masks
   };
 
   const value = {
@@ -164,7 +263,15 @@ export const TileSimulatorProvider = ({ children }) => {
     borderMasks,
     setBorderMaskColor,
     loading,
-    error
+    error,
+    selectedMaskId,
+    setSelectedMaskId,
+    selectedBorderMaskId,
+    setSelectedBorderMaskId,
+    previewMode,
+    setPreviewMode,
+    hoveredPaletteColor,
+    setHoveredPaletteColor
   };
 
   return (

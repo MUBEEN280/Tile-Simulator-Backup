@@ -31,6 +31,9 @@ const TileCanvasView = () => {
     borderMasks,
     selectedBorder,
     rotateBlock,
+    selectedMaskId,
+    previewMode,
+    hoveredPaletteColor,
   } = useTileSimulator();
 
   const [blockRotations, setBlockRotations] = useState([0, 0, 0, 0]);
@@ -219,13 +222,16 @@ const TileCanvasView = () => {
                         {/* Tile Masks */}
                         {selectedTile?.subMasks?.map((mask) => {
                           const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                          const isSelected = mask.id === selectedMaskId;
+                          const previewColor = previewMode && hoveredPaletteColor;
+                          const displayColor = isSelected && previewColor ? previewColor : maskColor || '#ffffff';
                           return (
                             <div
                               key={mask.id}
                               data-mask-id={mask.id}
                               className="absolute inset-0"
                               style={{
-                                backgroundColor: maskColor || '#ffffff',
+                                backgroundColor: displayColor,
                                 maskImage: mask.image
                                   ? `url(${mask.image})`
                                   : "none",
@@ -243,6 +249,7 @@ const TileCanvasView = () => {
                                   index % 2 === 0 ? "0" : "100%"
                                 } ${index < gridSize ? "0" : "100%"}`,
                                 zIndex: 1,
+                                transition: "background-color 0.3s ease-in-out",
                               }}
                             />
                           );

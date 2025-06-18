@@ -244,7 +244,7 @@ const TileSelector = ({ onSelectTile }) => {
             <div className="mt-1">
               <ColorEditor
                 tile={selectedTile}
-                tileMasks={subMasks}
+                tileMasks={selectedTile.subMasks}
                 setTileMaskColor={setTileMaskColor}
                 borderMasks={borderMasks}
                 setBorderMaskColor={setBorderMaskColor}
