@@ -28,7 +28,7 @@ const TileCanvasView = () => {
     setSelectedEnvironment,
     groutColor,
     groutThickness,
-    tileMasks,
+    subMasks,
     borderMasks,
     selectedBorder,
     rotateBlock,
@@ -183,7 +183,7 @@ const TileCanvasView = () => {
                         )}
 
                         {/* Tile Masks */}
-                        {tileMasks?.map((mask) => (
+                        {subMasks?.map((mask) => (
                           <div
                             key={mask.id}
                             className="absolute inset-0"
@@ -278,7 +278,7 @@ const TileCanvasView = () => {
         tileConfig={{
           tile: {
             ...selectedTile,
-            masks: tileMasks
+            masks: subMasks
           },
           color: selectedColor,
           size: selectedSize,

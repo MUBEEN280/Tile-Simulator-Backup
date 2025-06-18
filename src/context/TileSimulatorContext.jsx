@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from 'axios';
 
 const TileSimulatorContext = createContext();
-
+ 
 // Sample tiles with mask data
 
 export const TileSimulatorProvider = ({ children }) => {
@@ -82,13 +82,15 @@ export const TileSimulatorProvider = ({ children }) => {
             id: tile._id,
             name: tile.tileName || tile.name,
             image: tile.mainMask || tile.image,
-            shape: tile.shape || "square",
-            grout: tile.grout || "cross",
+            shape: tile.shapeStyle || "square",
+            grout: tile.groutShape || "cross",
             scale: tile.scale || 1,
             colorsUsed: tile.colorsUsed || ["#ffffff"],
-            masks: (tile.masks || []).map(mask => ({
-              ...mask,
-              image: mask.image || mask.maskImage
+            subMasks: (tile.subMasks || []).map(mask => ({
+              id: mask._id,
+              image: mask.image,
+              color: mask.backgroundColor,
+              publicId: mask.publicId
             }))
           };
           
@@ -174,7 +176,6 @@ export const TileSimulatorProvider = ({ children }) => {
     </TileSimulatorContext.Provider>
   );
 };
-
 export const useTileSimulator = () => {
   const context = useContext(TileSimulatorContext);
   if (!context) {
@@ -182,3 +183,4 @@ export const useTileSimulator = () => {
   }
   return context;
 };
+

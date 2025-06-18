@@ -269,8 +269,8 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
           }
 
           // Draw masks with proper scaling and rotation
-          if (tileConfig.tile.masks) {
-            for (const mask of tileConfig.tile.masks) {
+          if (tileConfig.tile.subMasks) {
+            for (const mask of tileConfig.tile.subMasks) {
               if (mask.image) {
                 try {
                   const maskImg = await loadImage(mask.image);
@@ -798,7 +798,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
                                 }}
                               />
                             )}
-                            {tileConfig?.tile?.masks?.map((mask) => (
+                            {tileConfig?.tile?.subMasks?.map((mask) => (
                               <div
                                 key={mask.id}
                                 className="absolute inset-0"
@@ -894,7 +894,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
                                 }}
                               />
                             )}
-                            {tileConfig?.tile?.masks?.map((mask) => (
+                            {tileConfig?.tile?.subMasks?.map((mask) => (
                               <div
                                 key={mask.id}
                                 className="absolute inset-0"

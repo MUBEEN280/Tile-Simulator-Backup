@@ -36,7 +36,7 @@ const TileSelector = ({ onSelectTile }) => {
     setGroutColor,
     groutThickness,
     setGroutThickness,
-    tileMasks,
+    subMasks,
     setTileMaskColor,
     borderMasks,
     setBorderMaskColor,
@@ -244,7 +244,7 @@ const TileSelector = ({ onSelectTile }) => {
             <div className="mt-1">
               <ColorEditor
                 tile={selectedTile}
-                tileMasks={tileMasks}
+                tileMasks={subMasks}
                 setTileMaskColor={setTileMaskColor}
                 borderMasks={borderMasks}
                 setBorderMaskColor={setBorderMaskColor}
