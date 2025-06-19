@@ -397,73 +397,42 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
 
   const generatePDF = async (formData) => {
     try {
-      console.log("Starting PDF generation...");
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
+      const margin = 0; // 1. Margin 0
 
-      // Add logo Header & Company Information
+      // Add logo (top left, larger)
       try {
         const logoUrl = "/Images/logo.png";
-        pdf.addImage(logoUrl, "PNG", margin, 15, 30, 30);
-        console.log("Logo added successfully");
+        pdf.addImage(logoUrl, "PNG", margin + 20, 10, 35, 28, undefined, 'FAST'); // Logo width 50px
+        // Company info (top right)
+        pdf.setFontSize(8);
+        pdf.text("1325 Exchange Drive", pageWidth - margin - 20, 15, { align: "right" });
+        pdf.text("Richardson, TX 75081", pageWidth - margin - 20, 20, { align: "right" });
+        pdf.text("Phone: 214-352-0000", pageWidth - margin - 20, 25, { align: "right" });
       } catch (error) {
         console.error("Error adding logo:", error);
       }
 
-      // Title and company info
+      // Title centered below header
       pdf.setFontSize(14);
-      pdf.text("Tile Configuration Details", pageWidth / 2, 30, {
-        align: "center",
-      });
+      pdf.text("Tile Configuration Details", pageWidth / 2, 40, { align: "center" });
 
-      pdf.setFontSize(8);
-      pdf.text("1325 Exchange Drive", pageWidth - margin, 20, {
-        align: "right",
-      });
-      pdf.text("Richardson, TX 75081", pageWidth - margin, 25, {
-        align: "right",
-      });
-      pdf.text("Phone: 214-352-0000", pageWidth - margin, 30, {
-        align: "right",
-      });
+      // Add red horizontal line below header
+      pdf.setDrawColor(189, 91, 76); // #BD5B4C
+      pdf.setLineWidth(0);
+      pdf.line(margin + 30, 45, pageWidth - margin - 30, 45);
 
-      // Draw a horizontal line below the header
-      pdf.setDrawColor(139, 0, 0);
-      pdf.line(margin, 60, pageWidth - margin, 60);
-
-      let yPosition = 80;
-
-      // Personal Information Section
-      pdf.setFontSize(16);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text("Personal Information", margin, yPosition);
-      yPosition += 10;
+      let yPosition = 55; // Start content below the header/title
+      let leftColX = margin + 20; // 20px margin from left
+      let rightColX = margin + 120; // 20px margin from left
 
       pdf.setFontSize(12);
-      pdf.setTextColor(51, 51, 51);
-      const personalInfo = [
-        { label: "Name", value: formData.name },
-        { label: "Email", value: formData.email },
-        { label: "Phone", value: formData.phone },
-        { label: "Reference", value: formData.reference || "N/A" },
-      ];
-
-      personalInfo.forEach((info) => {
-        pdf.text(`${info.label}: ${info.value}`, margin, yPosition);
-        yPosition += 8;
-      });
-
-      yPosition += 10;
-
-      // Tile Information Section
-      pdf.setFontSize(16);
       pdf.setTextColor(0, 0, 0);
-      pdf.text("Tile Information", margin, yPosition);
-      yPosition += 10; 
+      pdf.text("Tile Information", leftColX, yPosition);
 
-      pdf.setFontSize(12);
+      pdf.setFontSize(10);
       pdf.setTextColor(51, 51, 51);
       const tileInfo = [
         { label: "Tile Name", value: tileConfig?.tile?.name || "N/A" },
@@ -474,13 +443,33 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
         { label: "Grout Thickness", value: tileConfig?.thickness || "N/A" },
         { label: "Environment", value: tileConfig?.environment?.label || "N/A" },
       ];
-
+      let tileY = yPosition + 6;
       tileInfo.forEach((info) => {
-        pdf.text(`${info.label}: ${info.value}`, margin, yPosition);
-        yPosition += 8;
+        pdf.text(`${info.label}: ${info.value}`, leftColX, tileY);
+        tileY += 6;
       });
 
-      yPosition += 10;
+      // 3. Personal Information (right column)
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("Personal Information", rightColX, yPosition, { align: "left" });  // Align left for consistent spacing
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(51, 51, 51);
+      const personalInfo = [
+        { label: "Name", value: formData.name },
+        { label: "Email", value: formData.email },
+        { label: "Phone", value: formData.phone },
+        { label: "Reference", value: formData.reference || "N/A" },
+      ];
+      let personalY = yPosition + 6;
+      personalInfo.forEach((info) => {
+        pdf.text(`${info.label}: ${info.value}`, rightColX, personalY, { align: "left" }); // Align left for consistent spacing
+        personalY += 6;
+      });
+
+      // Move yPosition down for next section
+      yPosition = Math.max(tileY, personalY) + 10;
 
       // Check if we need a new page before adding images
       if (yPosition > pageHeight - 150) {
@@ -544,7 +533,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
         yPosition += 10;
 
         const tilePatternImage = tilePatternCanvas.toDataURL('image/png');
-        pdf.addImage(tilePatternImage, 'PNG', startX, yPosition, 80, 80);
+        pdf.addImage(tilePatternImage, 'PNG', startX, yPosition, 70, 70);
 
         // Add environment image side by side
         if (tileConfig?.environment?.image) {
@@ -576,36 +565,15 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
           document.body.removeChild(envContainer);
 
           const environmentImage = envCanvas.toDataURL('image/png');
-          pdf.addImage(environmentImage, 'PNG', startX + patternWidth + gap, yPosition, 80, 80);
+          pdf.addImage(environmentImage, 'PNG', startX + patternWidth + gap, yPosition, 70, 70);
         }
         yPosition += 90; // Adjusted spacing after both images
 
-        // Check if we need a new page before thank you section
-        if (yPosition > pageHeight - 100) {
-          pdf.addPage();
-          yPosition = 20;
-        }
-
-        // Additional Information Section
-        if (formData.message) {
-          pdf.setFontSize(16);
-          pdf.setTextColor(0, 0, 0);
-          pdf.text("Additional Information", margin, yPosition);
-          yPosition += 10;
-
-          pdf.setFontSize(12);
-          pdf.setTextColor(51, 51, 51);
-          const messageLines = pdf.splitTextToSize(formData.message, pageWidth - margin * 2);
-          pdf.text(messageLines, margin, yPosition);
-          yPosition += messageLines.length * 8;
-        }
-
-        // Thank You Section
+        // Thank You Section (immediately after images)
+        yPosition += 10;
         pdf.setFontSize(16);
-        pdf.setTextColor(139, 0, 0);
-        pdf.text("Thank You!", pageWidth / 2, yPosition, {
-          align: "center",
-        });
+        pdf.setTextColor(189, 91, 76); // #BD5B4C or your brand color
+        pdf.text("Thank You!", pageWidth / 2, yPosition, { align: "center" });
         yPosition += 10;
 
         pdf.setFontSize(12);
@@ -614,7 +582,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
           "Thank you for shopping with us! We appreciate your business and hope you love your new tile selection. If you have any questions or need assistance, please don't hesitate to contact us.";
         const splitMessage = pdf.splitTextToSize(
           thankYouMessage,
-          pageWidth - margin * 2
+          pageWidth - 40 // 20px margin on each side
         );
         pdf.text(splitMessage, pageWidth / 2, yPosition, { align: "center" });
         yPosition += splitMessage.length * 8 + 10;
