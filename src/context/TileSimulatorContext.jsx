@@ -138,10 +138,6 @@ export const TileSimulatorProvider = ({ children }) => {
   };
 
   const setTileMaskColor = (maskId, newColor) => {
-    // Get the old color before updating
-    const oldColor = tileMasks.find(mask => mask.id === maskId)?.color;
-    const oldColorHex = typeof oldColor === 'object' ? oldColor.hexCode : oldColor;
-
     // Update tileMasks
     setTileMasks(prevMasks =>
       prevMasks.map(mask =>
@@ -149,24 +145,19 @@ export const TileSimulatorProvider = ({ children }) => {
       )
     );
 
-    // Update selectedTile's subMasks
+    // Update selectedTile's subMasks without modifying colorsUsed
     setSelectedTile(prevTile => {
       if (!prevTile) return prevTile;
       return {
         ...prevTile,
         subMasks: prevTile.subMasks.map(mask =>
           mask.id === maskId ? { ...mask, color: newColor } : mask
-        ),
-        // Update colorsUsed array by replacing the old color with the new one
-        colorsUsed: prevTile.colorsUsed.map(colorId => {
-          // If this color ID corresponds to the old color, replace it with the new color
-          if (colorId === oldColorHex) {
-            return newColor;
-          }
-          return colorId;
-        })
+        )
       };
     });
+
+    // Keep the same mask selected
+    setSelectedMaskId(maskId);
   };
 
   const handleBorderSelect = (border) => {

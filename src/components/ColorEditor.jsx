@@ -53,15 +53,27 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
     }
   };
 
-  // Initialize selected mask when tile changes
-  useEffect(() => {
-    if (tileMasks && tileMasks.length > 0) {
-      setSelectedMaskId(tileMasks[0].id);
-      setSelectedBorderMaskId(null);
-    }
-  }, [tileMasks]);
-
   if (!tile || !Array.isArray(tileMasks)) return null;
+
+  // Get colors used by masks with their mask IDs
+  const getMaskColors = () => {
+    const maskColors = [];
+    
+    // Add colors from masks with their IDs
+    tileMasks.forEach((mask) => {
+      if (mask.color) {
+        const colorValue = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+        if (colorValue) {
+          maskColors.push({
+            color: colorValue,
+            maskId: mask.id
+          });
+        }
+      }
+    });
+
+    return maskColors;
+  };
 
   // Get all available colors from the selected tile's masks
   const allAvailableColors = Array.from(
@@ -70,7 +82,7 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
     )
   );
 
-  // Combine API colors with available colors
+  // Combine API colors with available colors, removing duplicates
   const combinedColors = [...new Set([...apiColors.map(c => c.hexCode), ...allAvailableColors])];
 
   // Split colors into rows of 5
@@ -91,99 +103,27 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
     ? selectedBorderMask.color
     : null;
 
-  // Get unique colors used by masks
-  const getUniqueColors = () => {
-    const colorSet = new Set();
-    
-    // Add colors from colorsUsed array by matching IDs with API colors
-    if (tile?.colorsUsed && Array.isArray(tile.colorsUsed)) {
-      tile.colorsUsed.forEach(colorId => {
-        const colorObj = apiColors.find(c => c._id === colorId);
-        if (colorObj && colorObj.hexCode) {
-          colorSet.add(colorObj.hexCode);
-        }
-      });
-    }
-
-    // Add colors from masks that aren't already in colorsUsed
-    tileMasks.forEach((mask) => {
-      if (mask.color) {
-        const colorValue = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-        if (colorValue && !colorSet.has(colorValue)) {
-          colorSet.add(colorValue);
-        }
-      }
-    });
-
-    // Add colors from border masks that aren't already in colorsUsed
-    borderMasks?.forEach((mask) => {
-      if (mask.color) {
-        const colorValue = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-        if (colorValue && !colorSet.has(colorValue)) {
-          colorSet.add(colorValue);
-        }
-      }
-    });
-
-    return Array.from(colorSet);
+  // When a color is clicked, select the specific mask
+  const handleColorClick = (color, maskId) => {
+    setSelectedMaskId(maskId);
+    setSelectedBorderMaskId(null);
   };
 
   // When a palette color is clicked, update only the selected mask
   const handlePaletteColorSelect = async (paletteColor) => {
     try {
-      // If color doesn't exist in API, add it
-      if (!apiColors.some(c => c.hexCode === paletteColor)) {
-        await addTileColor(paletteColor);
-      }
-
-      if (selectedBorderMaskId) {
-        setBorderMaskColor(selectedBorderMaskId, paletteColor);
-      } else if (selectedMaskId) {
-        setTileMaskColor(selectedMaskId, paletteColor);
-      } else {
-        // If no mask is selected, select the first mask and apply the color
-        if (tileMasks && tileMasks.length > 0) {
-          setSelectedMaskId(tileMasks[0].id);
-          setTileMaskColor(tileMasks[0].id, paletteColor);
-        }
+      if (selectedMaskId) {
+        // Store the current selected mask ID
+        const currentSelectedMaskId = selectedMaskId;
+        // Update the color
+        setTileMaskColor(currentSelectedMaskId, paletteColor);
+        // Keep the same mask selected
+        setSelectedMaskId(currentSelectedMaskId);
       }
       setPreviewMode(false);
       setHoveredPaletteColor(null);
     } catch (error) {
       console.error("Failed to apply color:", error);
-    }
-  };
-
-  // When a color is clicked, select the first mask with that color
-  const handleColorClick = (color) => {
-    // First try to find a tile mask with this color
-    const maskWithColor = tileMasks.find((mask) => {
-      const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-      return maskColor === color;
-    });
-    
-    if (maskWithColor) {
-      setSelectedMaskId(maskWithColor.id);
-      setSelectedBorderMaskId(null);
-      return;
-    }
-
-    // If no tile mask found, try to find a border mask with this color
-    const borderMaskWithColor = borderMasks?.find((mask) => {
-      const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-      return maskColor === color;
-    });
-    
-    if (borderMaskWithColor) {
-      setSelectedBorderMaskId(borderMaskWithColor.maskId);
-      setSelectedMaskId(null);
-      return;
-    }
-
-    // If no mask found with this color, select the first available mask
-    if (tileMasks && tileMasks.length > 0) {
-      setSelectedMaskId(tileMasks[0].id);
-      setSelectedBorderMaskId(null);
     }
   };
 
@@ -213,25 +153,19 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
           Colors Used
         </div>
         <div className="flex flex-wrap gap-3">
-          {getUniqueColors().map((color) => {
-            const isSelected = (selectedMaskId && tileMasks.find(mask => {
-              const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-              return mask.id === selectedMaskId && maskColor === color;
-            })) || (selectedBorderMaskId && borderMasks?.find(mask => {
-              const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-              return mask.maskId === selectedBorderMaskId && maskColor === color;
-            }));
+          {getMaskColors().map(({ color, maskId }) => {
+            const isSelected = maskId === selectedMaskId;
             return (
               <button
-                key={color}
+                key={`${maskId}-${color}`}
                 className={`w-6 h-6 transition-all duration-300 ease-in-out transform hover:scale-110
                   ${isSelected
                     ? "rounded-md ring-2 ring-[#bd5b4c]"
                     : "rounded-full hover:rounded-full hover:ring-1 hover:ring-[#bd5b4c]"
                   }`}
                 style={{ backgroundColor: color }}
-                title={color}
-                onClick={() => handleColorClick(color)}
+                title={`Mask ${maskId} - ${color}`}
+                onClick={() => handleColorClick(color, maskId)}
                 onMouseEnter={() => {
                   setPreviewMode(true);
                   setHoveredPaletteColor(color);
