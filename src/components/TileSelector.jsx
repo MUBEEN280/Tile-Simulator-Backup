@@ -136,7 +136,7 @@ const TileSelector = ({ onSelectTile }) => {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center text-gray-500 py-4">
+                  <div className="text-center text-gray-500 py-4 text-wrap max-w-80">
                     No tiles found in this category. Please check if tiles are assigned to this category.
                   </div>
                 )}

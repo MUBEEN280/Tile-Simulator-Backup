@@ -503,7 +503,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
         console.log('Tile Pattern ref found, waiting for images to load...');
         await waitForImagesToLoad(tilePatternRef.current);
         console.log('All images loaded, capturing with html2canvas...');
-        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for safety
+        await new Promise(resolve => setTimeout(resolve, 200));
         try {
           const tileCanvas = await html2canvas(tilePatternRef.current, {
             scale: 2,

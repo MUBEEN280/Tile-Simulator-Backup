@@ -36,7 +36,7 @@ const TileCanvasView = () => {
     hoveredPaletteColor,
   } = useTileSimulator();
 
-  const [blockRotations, setBlockRotations] = useState([0, 0, 0, 0]);
+  const [tileRotations, setTileRotations] = useState([]);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const tilePreviewRef = useRef(null);
   const pdfTilePreviewRef = useRef(null);
@@ -71,14 +71,17 @@ const TileCanvasView = () => {
     setIsModalOpen(true);
   };
 
-  const handleRotateBlock = (blockIndex) => {
-    const newRotations = [...blockRotations];
-    newRotations[blockIndex] = (newRotations[blockIndex] + 90) % 360;
-    setBlockRotations(newRotations);
-    if (rotateBlock) {
-      rotateBlock(blockIndex);
-    }
+  const handleRotateTile = (tileIndex) => {
+    setTileRotations((prev) => {
+      const newRotations = [...prev];
+      newRotations[tileIndex] = (newRotations[tileIndex] + 90) % 360;
+      return newRotations;
+    });
   };
+
+  useEffect(() => {
+    setTileRotations(Array(totalTiles).fill(0));
+  }, [totalTiles, selectedTile]);
 
   useEffect(() => {
     if (selectedColor) {
@@ -162,13 +165,6 @@ const TileCanvasView = () => {
                     (index % 2) + 2 * (Math.floor(index / gridSize) % 2);
                   const bgPos = tileStyles[patternIndex];
 
-                  // Calculate the block index for rotation (0-3 for each 2x2 block)
-                  const blockIndex =
-                    (index % 2) +
-                    2 *
-                      (Math.floor((index % gridSize) / 2) +
-                        Math.floor(index / (gridSize * 2)) * 2);
-
                   return (
                     <div
                       key={index}
@@ -179,15 +175,13 @@ const TileCanvasView = () => {
                         overflow: "hidden",
                         backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                       }}
-                      onClick={() => handleRotateBlock(blockIndex % 4)}
+                      onClick={() => handleRotateTile(index)}
                     >
                       {/* Base Tile */}
                       <div
                         className="absolute inset-0"
                         style={{
-                          transform: `rotate(${
-                            blockRotations[blockIndex % 4] || 0
-                          }deg)`,
+                          transform: `rotate(${tileRotations[index] || 0}deg)`,
                           transition: "transform 0.3s ease-in-out",
                           backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                         }}
@@ -199,9 +193,7 @@ const TileCanvasView = () => {
                             className="absolute inset-0 w-full h-full object-cover"
                             style={{
                               transform: `scale(2)`,
-                              transformOrigin: `${
-                                index % 2 === 0 ? "0" : "100%"
-                              } ${index < gridSize ? "0" : "100%"}`,
+                              transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridSize ? "0" : "100%"}`,
                               backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                             }}
                             onError={(e) => {
@@ -351,13 +343,6 @@ const TileCanvasView = () => {
                       (index % 2) + 2 * (Math.floor(index / gridSize) % 2);
                     const bgPos = tileStyles[patternIndex];
 
-                    // Calculate the block index for rotation (0-3 for each 2x2 block)
-                    const blockIndex =
-                      (index % 2) +
-                      2 *
-                        (Math.floor((index % gridSize) / 2) +
-                          Math.floor(index / (gridSize * 2)) * 2);
-
                     return (
                       <div
                         key={index}
@@ -368,15 +353,13 @@ const TileCanvasView = () => {
                           overflow: "hidden",
                           backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                         }}
-                        onClick={() => handleRotateBlock(blockIndex % 4)}
+                        onClick={() => handleRotateTile(index)}
                       >
                         {/* Base Tile */}
                         <div
                           className="absolute inset-0"
                           style={{
-                            transform: `rotate(${
-                              blockRotations[blockIndex % 4] || 0
-                            }deg)`,
+                            transform: `rotate(${tileRotations[index] || 0}deg)`,
                             transition: "transform 0.3s ease-in-out",
                             backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                           }}
@@ -388,9 +371,7 @@ const TileCanvasView = () => {
                               className="absolute inset-0 w-full h-full object-cover"
                               style={{
                                 transform: `scale(2)`,
-                                transformOrigin: `${
-                                  index % 2 === 0 ? "0" : "100%"
-                                } ${index < gridSize ? "0" : "100%"}`,
+                                transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridSize ? "0" : "100%"}`,
                                 backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                               }}
                               onError={(e) => {
@@ -533,7 +514,7 @@ const TileCanvasView = () => {
                 image: currentEnv.image,
               }
             : null,
-          rotations: blockRotations,
+          rotations: tileRotations,
         }}
         tilePreviewRef={pdfTilePreviewRef}
       />
