@@ -46,9 +46,15 @@ const TileSelector = ({ onSelectTile }) => {
     error
   } = useTileSimulator();
 
+  const currentCategory = categories.find(cat => cat._id === selectedCategory);
+
   const handleTileClick = (tile) => {
-    if (selectedCategory === "Border Collection") {
-      setSelectedBorder(tile.image);
+    if (currentCategory?.name === "Border Collection") {
+      if (!selectedTile) {
+        alert("first select tile");
+        return;
+      }
+      setSelectedBorder(tile);
     } else {
       handleTileSelect(tile);
       if (onSelectTile) {

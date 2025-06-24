@@ -8,12 +8,16 @@ const API_URL = "https://tile-simulator-dashboard.onrender.com";
 const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorderMaskColor }) => {
   const {
     selectedColor,
+    selectedMaskId,
+    setSelectedMaskId,
+    selectedBorderMaskId,
+    setSelectedBorderMaskId,
+    previewMode,
+    setPreviewMode,
+    hoveredPaletteColor,
+    setHoveredPaletteColor
   } = useTileSimulator();
 
-  const [hoveredPaletteColor, setHoveredPaletteColor] = useState(null);
-  const [previewMode, setPreviewMode] = useState(false);
-  const [selectedMaskId, setSelectedMaskId] = useState(null);
-  const [selectedBorderMaskId, setSelectedBorderMaskId] = useState(null);
   const [visibleRows, setVisibleRows] = useState(1);
   const [apiColors, setApiColors] = useState([]);
   const [colorLoading, setColorLoading] = useState(false);
@@ -109,6 +113,12 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
     setSelectedBorderMaskId(null);
   };
 
+  // When a border color is clicked, select the specific border mask
+  const handleBorderColorClick = (maskId) => {
+    setSelectedBorderMaskId(maskId);
+    setSelectedMaskId(null);
+  };
+
   // When a palette color is clicked, update only the selected mask
   const handlePaletteColorSelect = async (paletteColor) => {
     try {
@@ -180,6 +190,30 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
         </div>
       </div>
 
+      {/* Border Colors Used */}
+      {borderMasks && borderMasks.length > 0 && (
+        <div className="mb-4 mt-4">
+          <div className="text-sm mb-3 tracking-wider font-light font-poppins">
+            Border Colors
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {borderMasks.map((mask) => {
+              const colorValue = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+              return (
+                <div
+                  key={`border-color-${mask.maskId}`}
+                  onClick={() => handleBorderColorClick(mask.maskId)}
+                  className={`w-8 h-8 rounded-full cursor-pointer border-2 ${
+                    selectedBorderMaskId === mask.maskId ? 'border-blue-500' : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: colorValue }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Available Colors */}
       <div className="mb-4">
         <div className="text-sm mb-3 tracking-wider font-light font-poppins">
@@ -200,6 +234,7 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
                   return mask.maskId === selectedBorderMaskId && maskColor === paletteColor;
                 }));
                 const isHovered = hoveredPaletteColor === paletteColor;
+                const finalColor = previewMode && isHovered ? hoveredPaletteColor : paletteColor;
                 return (
                   <button
                     key={`palette-color-${rowIndex}-${index}-${paletteColor}`}
@@ -208,7 +243,7 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
                         ? "rounded-md ring-2 ring-[#bd5b4c]"
                         : "rounded-full hover:rounded-full hover:ring-1 hover:ring-[#bd5b4c]"
                       }`}
-                    style={{ backgroundColor: paletteColor }}
+                    style={{ backgroundColor: finalColor }}
                     title={paletteColor}
                     onClick={() => handlePaletteColorSelect(paletteColor)}
                     onMouseEnter={() => {

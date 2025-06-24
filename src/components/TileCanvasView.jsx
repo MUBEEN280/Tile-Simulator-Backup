@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { IoMdClose } from "react-icons/io";
 import SaveButton from "./buttons/SaveButton";
 import ShopButton from "./buttons/ShopButton";
@@ -38,6 +38,8 @@ const TileCanvasView = () => {
 
   const [blockRotations, setBlockRotations] = useState([0, 0, 0, 0]);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const tilePreviewRef = useRef(null);
+  const pdfTilePreviewRef = useRef(null);
 
   const currentEnv = selectedEnvironment ? environments.find(
     (env) => env.label === selectedEnvironment
@@ -136,23 +138,13 @@ const TileCanvasView = () => {
   }
 
   return (
-    <div className="w-full mx-auto lg:mx-0 p-1">
-      <h2 className="font-poppins font-semibold tracking-wide text-lg mb-2">
-        TILE Preview
-      </h2>
-      <div className="relative mb-6">
-        <div
-          className="w-full  rounded shadow"
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            width: `${containerWidth}px`,
-            height: containerHeight,
-            maxWidth: "100%",
-            margin: "0 auto",
-          }}
-        >
-          {/* Tile Grid Container */}
+    <>
+      {/* Hidden tile preview for PDF generation */}
+      <div ref={pdfTilePreviewRef} style={{ position: 'absolute', left: '-9999px', top: 0, width: 300, height: 300, pointerEvents: 'none', zIndex: -1 }}>
+        {/* Render the same tile preview here as in the main preview */}
+        <div className="w-full h-full">
+          {/* Copy the tile grid rendering logic here, or use a shared component if you have one */}
+          {/* For simplicity, you can render the same JSX as your main tile preview grid */}
           <div className="relative">
             <div className="relative w-full h-full">
               <div
@@ -287,6 +279,21 @@ const TileCanvasView = () => {
                   />
                 ))}
 
+              {/* Border Frame Layer */}
+              {selectedBorder && (
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    backgroundImage: `url(${selectedBorder.image})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 8% 8%, 8% 92%, 92% 92%, 92% 8%, 8% 8%)',
+                    zIndex: 2,
+                  }}
+                />
+              )}
+
               {/* Environment Image */}
               {currentEnv && (
                 <>
@@ -310,11 +317,201 @@ const TileCanvasView = () => {
           </div>
         </div>
       </div>
+      <div ref={tilePreviewRef} className="w-full mx-auto lg:mx-0 p-1">
+        <h2 className="font-poppins font-semibold tracking-wide text-lg mb-2">
+          TILE Preview
+        </h2>
+        <div className="relative mb-6">
+          <div
+            className="w-full  rounded shadow"
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              width: `${containerWidth}px`,
+              height: containerHeight,
+              maxWidth: "100%",
+              margin: "0 auto",
+            }}
+          >
+            {/* Tile Grid Container */}
+            <div className="relative">
+              <div className="relative w-full h-full">
+                <div
+                  className="grid bg-white"
+                  style={{
+                    gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                    gap: groutThickness !== "none" ? groutThicknessPx : "0px",
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: groutColor,
+                  }}
+                >
+                  {Array.from({ length: totalTiles }).map((_, index) => {
+                    const patternIndex =
+                      (index % 2) + 2 * (Math.floor(index / gridSize) % 2);
+                    const bgPos = tileStyles[patternIndex];
 
-      {/* Action Buttons */}
-      <div className="flex justify-center items-center gap-2 sm:gap-20 mt-5 flex-wrap">
-        <SaveButton onSave={handleSave} />
-        <ShopButton />
+                    // Calculate the block index for rotation (0-3 for each 2x2 block)
+                    const blockIndex =
+                      (index % 2) +
+                      2 *
+                        (Math.floor((index % gridSize) / 2) +
+                          Math.floor(index / (gridSize * 2)) * 2);
+
+                    return (
+                      <div
+                        key={index}
+                        className="relative cursor-pointer"
+                        style={{
+                          width: "100%",
+                          aspectRatio: "1 / 1",
+                          overflow: "hidden",
+                          backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
+                        }}
+                        onClick={() => handleRotateBlock(blockIndex % 4)}
+                      >
+                        {/* Base Tile */}
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            transform: `rotate(${
+                              blockRotations[blockIndex % 4] || 0
+                            }deg)`,
+                            transition: "transform 0.3s ease-in-out",
+                            backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
+                          }}
+                        >
+                          {selectedTile?.image && (
+                            <img
+                              src={selectedTile.image}
+                              alt={`Tile Block ${index + 1}`}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              style={{
+                                transform: `scale(2)`,
+                                transformOrigin: `${
+                                  index % 2 === 0 ? "0" : "100%"
+                                } ${index < gridSize ? "0" : "100%"}`,
+                                backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
+                              }}
+                              onError={(e) => {
+                                console.error('Error loading image:', selectedTile.image);
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          )}
+
+                          {/* Tile Masks */}
+                          {selectedTile?.subMasks?.map((mask) => {
+                            const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                            const isSelected = mask.id === selectedMaskId;
+                            const previewColor = previewMode && hoveredPaletteColor;
+                            const displayColor = isSelected && previewColor ? previewColor : maskColor || '#ffffff';
+                            return (
+                              <div
+                                key={mask.id}
+                                data-mask-id={mask.id}
+                                className="absolute inset-0"
+                                style={{
+                                  backgroundColor: displayColor,
+                                  maskImage: mask.image
+                                    ? `url(${mask.image})`
+                                    : "none",
+                                  WebkitMaskImage: mask.image
+                                    ? `url(${mask.image})`
+                                    : "none",
+                                  maskSize: "cover",
+                                  WebkitMaskSize: "cover",
+                                  maskPosition: "center",
+                                  WebkitMaskPosition: "center",
+                                  maskRepeat: "no-repeat",
+                                  WebkitMaskRepeat: "no-repeat",
+                                  transform: `scale(2)`,
+                                  transformOrigin: `${
+                                    index % 2 === 0 ? "0" : "100%"
+                                  } ${index < gridSize ? "0" : "100%"}`,
+                                  zIndex: 1,
+                                  transition: "background-color 0.3s ease-in-out",
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Border Mask Layers */}
+                {selectedBorder &&
+                  borderMasks?.map((mask) => (
+                    <div
+                      key={mask.maskId}
+                      data-mask-id={mask.maskId}
+                      className="absolute inset-0"
+                      style={{
+                        backgroundColor: typeof mask.color === 'object' ? mask.color.hexCode || '#ffffff' : mask.color,
+                        maskImage: mask.image ? `url(${mask.image})` : "none",
+                        WebkitMaskImage: mask.image
+                          ? `url(${mask.image})`
+                          : "none",
+                        maskSize: "100%",
+                        WebkitMaskSize: "100%",
+                        maskPosition: "center",
+                        WebkitMaskPosition: "center",
+                        maskRepeat: "no-repeat",
+                        WebkitMaskRepeat: "no-repeat",
+                        mixBlendMode: "source-in",
+                        zIndex: 3,
+                        clipPath:
+                          "polygon(0 0, 5% 0, 5% 5%, 0 5%, 0 0, 100% 0, 100% 5%, 95% 5%, 95% 0, 100% 0, 100% 100%, 95% 100%, 95% 95%, 100% 95%, 100% 100%, 0 100%, 0 95%, 5% 95%, 5% 100%, 0 100%)",
+                      }}
+                    />
+                  ))}
+
+                {/* Border Frame Layer */}
+                {selectedBorder && (
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      backgroundImage: `url(${selectedBorder.image})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                      clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 8% 8%, 8% 92%, 92% 92%, 92% 8%, 8% 8%)',
+                      zIndex: 2,
+                    }}
+                  />
+                )}
+
+                {/* Environment Image */}
+                {currentEnv && (
+                  <>
+                    <img
+                      src={currentEnv.image}
+                      alt="Room preview"
+                      className="w-full h-full object-cover absolute inset-0"
+                      style={{
+                        zIndex: 3,
+                      }}
+                    />
+                    <button
+                      onClick={() => setSelectedEnvironment(null)}
+                      className="absolute top-3 right-3 bg-black bg-opacity-70 text-white rounded-full p-1 z-50 hover:ring-2 hover:ring-[#bd5b4c] hover:shadow-md hover:shadow-[#bd5b4c] transition-all duration-300 ease-in-out"
+                    >
+                      <IoMdClose size={20} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-center items-center gap-2 sm:gap-20 mt-5 flex-wrap">
+          <SaveButton onSave={handleSave} />
+          <ShopButton />
+        </div>
       </div>
 
       {/* TileModal */}
@@ -338,8 +535,9 @@ const TileCanvasView = () => {
             : null,
           rotations: blockRotations,
         }}
+        tilePreviewRef={pdfTilePreviewRef}
       />
-    </div>
+    </>
   );
 };
 

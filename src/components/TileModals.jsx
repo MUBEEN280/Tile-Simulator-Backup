@@ -21,6 +21,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
     width: window.innerWidth,
     height: window.innerHeight,
   });
+  const tilePatternRef = useRef(null);
 
   // Handle window resize
   useEffect(() => {
@@ -395,6 +396,21 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
     });
   };
 
+  // Add this utility function before generatePDF
+  async function waitForImagesToLoad(container) {
+    const images = container.querySelectorAll('img');
+    await Promise.all(
+      Array.from(images).map(
+        img =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise(resolve => {
+                img.onload = img.onerror = resolve;
+              })
+      )
+    );
+  }
+
   const generatePDF = async (formData) => {
     try {
       const pdf = new jsPDF();
@@ -477,131 +493,69 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
         yPosition = 20;
       }
 
-      // Capture and add the tile pattern with environment
-      try {
-        // Create a temporary container for the tile pattern
-        const tempContainer = document.createElement('div');
-        tempContainer.style.width = '80px';
-        tempContainer.style.height = '80px';
-        tempContainer.style.position = 'relative';
-        tempContainer.style.overflow = 'hidden';
-        tempContainer.style.backgroundColor = tileConfig?.groutColor || '#333333';
-        document.body.appendChild(tempContainer);
+      // Add tile pattern to PDF using the captured preview image
+      pdf.setFontSize(14);
+      pdf.text("Tile Pattern", pageWidth / 2, yPosition, { align: "center" });
+      yPosition += 10;
 
-        // Add a single tile
-        const tile = document.createElement('div');
-        tile.style.position = 'relative';
-        tile.style.width = '100%';
-        tile.style.height = '100%';
-        tile.style.backgroundColor = 'white';
-        tempContainer.appendChild(tile);
-
-        // Add tile image if available
-        if (tileConfig?.tile?.image) {
-          const img = document.createElement('img');
-          img.src = tileConfig.tile.image;
-          img.style.width = '100%';
-          img.style.height = '100%';
-          img.style.objectFit = 'cover';
-          img.style.opacity = '0.8';
-          tile.appendChild(img);
-        }
-
-        // Capture the tile pattern
-        const tilePatternCanvas = await html2canvas(tempContainer, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: null
-        });
-
-        // Clean up
-        document.body.removeChild(tempContainer);
-
-        // Calculate center positions for both images
-        const totalWidth = pageWidth - (margin * 2);
-        const patternWidth = 80;
-        const envWidth = 80;
-        const gap = 20; // Gap between images
-        const totalImagesWidth = patternWidth + envWidth + gap;
-        const startX = (totalWidth - totalImagesWidth) / 2 + margin;
-
-        // Add tile pattern to PDF
-        pdf.setFontSize(14);
-        pdf.text("Tile Pattern", startX + (patternWidth / 2), yPosition, { align: "center" });
-        pdf.text("Tile Environment", startX + patternWidth + gap + (envWidth / 2), yPosition, { align: "center" });
-        yPosition += 10;
-
-        const tilePatternImage = tilePatternCanvas.toDataURL('image/png');
-        pdf.addImage(tilePatternImage, 'PNG', startX, yPosition, 70, 70);
-
-        // Add environment image side by side
-        if (tileConfig?.environment?.image) {
-          // Create a temporary container for the environment
-          const envContainer = document.createElement('div');
-          envContainer.style.width = '80px';
-          envContainer.style.height = '80px';
-          envContainer.style.position = 'relative';
-          envContainer.style.overflow = 'hidden';
-          document.body.appendChild(envContainer);
-
-          // Add environment image
-          const envImg = document.createElement('img');
-          envImg.src = tileConfig.environment.image;
-          envImg.style.width = '100%';
-          envImg.style.height = '100%';
-          envImg.style.objectFit = 'cover';
-          envContainer.appendChild(envImg);
-
-          // Capture the environment
-          const envCanvas = await html2canvas(envContainer, {
+      let tilePreviewImage = null;
+      if (tilePatternRef && tilePatternRef.current) {
+        console.log('Tile Pattern ref found, waiting for images to load...');
+        await waitForImagesToLoad(tilePatternRef.current);
+        console.log('All images loaded, capturing with html2canvas...');
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for safety
+        try {
+          const tileCanvas = await html2canvas(tilePatternRef.current, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: null
           });
-
-          // Clean up
-          document.body.removeChild(envContainer);
-
-          const environmentImage = envCanvas.toDataURL('image/png');
-          pdf.addImage(environmentImage, 'PNG', startX + patternWidth + gap, yPosition, 70, 70);
+          tilePreviewImage = tileCanvas.toDataURL('image/png');
+          console.log('Tile Pattern image captured:', tilePreviewImage.slice(0, 100));
+        } catch (err) {
+          console.error('Error capturing Tile Pattern with html2canvas:', err);
         }
-        yPosition += 90; // Adjusted spacing after both images
-
-        // Thank You Section (immediately after images)
-        yPosition += 10;
-        pdf.setFontSize(16);
-        pdf.setTextColor(189, 91, 76); // #BD5B4C or your brand color
-        pdf.text("Thank You!", pageWidth / 2, yPosition, { align: "center" });
-        yPosition += 10;
-
-        pdf.setFontSize(12);
-        pdf.setTextColor(51, 51, 51);
-        const thankYouMessage =
-          "Thank you for shopping with us! We appreciate your business and hope you love your new tile selection. If you have any questions or need assistance, please don't hesitate to contact us.";
-        const splitMessage = pdf.splitTextToSize(
-          thankYouMessage,
-          pageWidth - 40 // 20px margin on each side
-        );
-        pdf.text(splitMessage, pageWidth / 2, yPosition, { align: "center" });
-        yPosition += splitMessage.length * 8 + 10;
-
-        pdf.setFontSize(10);
-        pdf.setTextColor(139, 0, 0);
-        pdf.text("Contact Us:", pageWidth / 2, yPosition, { align: "center" });
-        yPosition += 8;
-        pdf.text("Email: support@tilesimulator.com", pageWidth / 2, yPosition, {
-          align: "center",
-        });
-        yPosition += 8;
-        pdf.text("Phone: 214-352-0000", pageWidth / 2, yPosition, {
-          align: "center",
-        });
-
-      } catch (error) {
-        console.error("Error capturing images:", error);
+      } else {
+        console.error('Tile Pattern ref is missing or not attached to the element!');
       }
+
+      if (tilePreviewImage) {
+        const patternWidth = 70;
+        const x = (pageWidth - patternWidth) / 2;
+        pdf.addImage(tilePreviewImage, 'PNG', x, yPosition, patternWidth, patternWidth);
+        yPosition += patternWidth + 10;
+      }
+
+      // Thank You Section (immediately after images)
+      yPosition += 10;
+      pdf.setFontSize(16);
+      pdf.setTextColor(189, 91, 76); // #BD5B4C or your brand color
+      pdf.text("Thank You!", pageWidth / 2, yPosition, { align: "center" });
+      yPosition += 10;
+
+      pdf.setFontSize(12);
+      pdf.setTextColor(51, 51, 51);
+      const thankYouMessage =
+        "Thank you for shopping with us! We appreciate your business and hope you love your new tile selection. If you have any questions or need assistance, please don't hesitate to contact us.";
+      const splitMessage = pdf.splitTextToSize(
+        thankYouMessage,
+        pageWidth - 40 // 20px margin on each side
+      );
+      pdf.text(splitMessage, pageWidth / 2, yPosition, { align: "center" });
+      yPosition += splitMessage.length * 8 + 10;
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(139, 0, 0);
+      pdf.text("Contact Us:", pageWidth / 2, yPosition, { align: "center" });
+      yPosition += 8;
+      pdf.text("Email: support@tilesimulator.com", pageWidth / 2, yPosition, {
+        align: "center",
+      });
+      yPosition += 8;
+      pdf.text("Phone: 214-352-0000", pageWidth / 2, yPosition, {
+        align: "center",
+      });
 
       return pdf;
     } catch (error) {
@@ -609,6 +563,14 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
       throw error;
     }
   };
+
+  // --- Always render a hidden tile pattern preview for PDF capture ---
+  // This ensures html2canvas can always find the element in the DOM
+  // and the ref is always attached, even if the modal is closed.
+  // The rendering logic must match the visible tile pattern preview.
+  const gridCols = tileConfig?.size === "8x8" ? 9 : 12;
+  const gridRows = tileConfig?.size === "8x8" ? 6 : 9;
+  const totalTiles = gridCols * gridRows;
 
   if (!isOpen) return null;
 
@@ -751,6 +713,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
                           >
                             {tileConfig?.tile?.image && (
                               <img
+                                crossOrigin="anonymous"
                                 src={tileConfig.tile.image}
                                 alt={`Tile Block ${index + 1}`}
                                 className="absolute inset-0 w-full h-full object-cover"
@@ -851,6 +814,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
                           >
                             {tileConfig?.tile?.image && (
                               <img
+                                crossOrigin="anonymous"
                                 src={tileConfig.tile.image}
                                 alt={`Tile Block ${index + 1}`}
                                 className="absolute inset-0 w-full h-full object-cover"
@@ -1072,6 +1036,96 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
             </form>
           </div>
         )}
+      </div>
+      {/* --- End hidden tile pattern preview --- */}
+      <div
+        ref={tilePatternRef}
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+          width: "300px",
+          height: "300px",
+          visibility: "hidden",
+          pointerEvents: "none",
+          zIndex: -1,
+        }}
+      >
+        <div className="relative w-full h-full">
+          <div
+            className="grid bg-white"
+            style={{
+              gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+              gap: "0px",
+              width: "100%",
+              height: "100%",
+              backgroundColor: tileConfig?.groutColor || "#333333",
+              position: "relative",
+              aspectRatio: "1 / 1",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              margin: "auto",
+            }}
+          >
+            {Array.from({ length: totalTiles }).map((_, index) => (
+              <div
+                key={index}
+                className="relative bg-white"
+                style={{
+                  width: "100%",
+                  aspectRatio: "1 / 1",
+                  overflow: "hidden",
+                  position: "relative",
+                }}
+              >
+                {tileConfig?.tile?.image && (
+                  <img
+                    crossOrigin="anonymous"
+                    src={tileConfig.tile.image}
+                    alt={`Tile Block ${index + 1}`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{
+                      transform: `scale(2)`,
+                      transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridCols ? "0" : "100%"}`,
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      objectFit: "cover",
+                    }}
+                  />
+                )}
+                {tileConfig?.tile?.subMasks?.map((mask) => (
+                  <div
+                    key={mask.id}
+                    className="absolute inset-0"
+                    style={{
+                      backgroundColor: mask.color,
+                      maskImage: mask.image ? `url(${mask.image})` : "none",
+                      WebkitMaskImage: mask.image ? `url(${mask.image})` : "none",
+                      maskSize: "cover",
+                      WebkitMaskSize: "cover",
+                      maskPosition: "center",
+                      WebkitMaskPosition: "center",
+                      maskRepeat: "no-repeat",
+                      WebkitMaskRepeat: "no-repeat",
+                      transform: `scale(2)`,
+                      transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridCols ? "0" : "100%"}`,
+                      zIndex: 1,
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

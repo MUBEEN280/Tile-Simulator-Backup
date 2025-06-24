@@ -121,6 +121,18 @@ export const TileSimulatorProvider = ({ children }) => {
     fetchTiles();
   }, [categories]);
 
+  useEffect(() => {
+    if (selectedBorder && selectedBorder.subMasks) {
+      setBorderMasks(selectedBorder.subMasks.map(mask => ({
+        maskId: mask.id,
+        image: mask.image,
+        color: mask.color,
+      })));
+    } else {
+      setBorderMasks([]);
+    }
+  }, [selectedBorder]);
+
   const handleTileSelect = (tile) => {
     setSelectedTile(tile);
     // Initialize tileMasks with the selected tile's subMasks
