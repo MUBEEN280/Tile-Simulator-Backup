@@ -5,9 +5,8 @@ import axios from "axios";
 const API_URL = "https://tile-simulator-dashboard.onrender.com";
 
 
-const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorderMaskColor }) => {
+const ColorEditor = ({ tile, tileMasks, borderMasks }) => {
   const {
-    selectedColor,
     selectedMaskId,
     setSelectedMaskId,
     selectedBorderMaskId,
@@ -15,7 +14,8 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
     previewMode,
     setPreviewMode,
     hoveredPaletteColor,
-    setHoveredPaletteColor
+    setHoveredPaletteColor,
+    handlePaletteColorSelect,
   } = useTileSimulator();
 
   const [visibleRows, setVisibleRows] = useState(1);
@@ -107,8 +107,22 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
     ? selectedBorderMask.color
     : null;
 
+  // Find the hex code of the currently selected color
+  let currentSelectedColorValue = null;
+  if (selectedMaskId) {
+    const currentMask = tileMasks.find(m => m.id === selectedMaskId);
+    if (currentMask) {
+      currentSelectedColorValue = typeof currentMask.color === 'object' ? currentMask.color.hexCode : currentMask.color;
+    }
+  } else if (selectedBorderMaskId) {
+    const currentBorderMask = borderMasks.find(m => m.maskId === selectedBorderMaskId);
+    if (currentBorderMask) {
+      currentSelectedColorValue = typeof currentBorderMask.color === 'object' ? currentBorderMask.color.hexCode : currentBorderMask.color;
+    }
+  }
+
   // When a color is clicked, select the specific mask
-  const handleColorClick = (color, maskId) => {
+  const handleColorClick = (maskId) => {
     setSelectedMaskId(maskId);
     setSelectedBorderMaskId(null);
   };
@@ -117,24 +131,6 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
   const handleBorderColorClick = (maskId) => {
     setSelectedBorderMaskId(maskId);
     setSelectedMaskId(null);
-  };
-
-  // When a palette color is clicked, update only the selected mask
-  const handlePaletteColorSelect = async (paletteColor) => {
-    try {
-      if (selectedMaskId) {
-        // Store the current selected mask ID
-        const currentSelectedMaskId = selectedMaskId;
-        // Update the color
-        setTileMaskColor(currentSelectedMaskId, paletteColor);
-        // Keep the same mask selected
-        setSelectedMaskId(currentSelectedMaskId);
-      }
-      setPreviewMode(false);
-      setHoveredPaletteColor(null);
-    } catch (error) {
-      console.error("Failed to apply color:", error);
-    }
   };
 
   const handleShowMore = () => {
@@ -162,31 +158,19 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
         <div className="text-sm mb-2 tracking-wider font-light font-poppins">
           Colors Used
         </div>
-        <div className="flex flex-wrap gap-3">
-          {getMaskColors().map(({ color, maskId }) => {
-            const isSelected = maskId === selectedMaskId;
-            return (
-              <button
-                key={`${maskId}-${color}`}
-                className={`w-6 h-6 transition-all duration-300 ease-in-out transform hover:scale-110
-                  ${isSelected
-                    ? "rounded-md ring-2 ring-[#bd5b4c]"
-                    : "rounded-full hover:rounded-full hover:ring-1 hover:ring-[#bd5b4c]"
-                  }`}
-                style={{ backgroundColor: color }}
-                title={`Mask ${maskId} - ${color}`}
-                onClick={() => handleColorClick(color, maskId)}
-                onMouseEnter={() => {
-                  setPreviewMode(true);
-                  setHoveredPaletteColor(color);
-                }}
-                onMouseLeave={() => {
-                  setPreviewMode(false);
-                  setHoveredPaletteColor(null);
-                }}
-              />
-            );
-          })}
+        <div className="flex flex-wrap gap-2">
+          {getMaskColors().map(({ color, maskId }, index) => (
+            <div
+              key={`tile-color-${index}`}
+              onClick={() => handleColorClick(maskId)}
+              className={`w-6 h-6 cursor-pointer transition-all duration-300 ${
+                selectedMaskId === maskId
+                  ? 'rounded-lg shadow-inner'
+                  : 'rounded-full'
+              }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
         </div>
       </div>
 
@@ -203,8 +187,10 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
                 <div
                   key={`border-color-${mask.maskId}`}
                   onClick={() => handleBorderColorClick(mask.maskId)}
-                  className={`w-8 h-8 rounded-full cursor-pointer border-2 ${
-                    selectedBorderMaskId === mask.maskId ? 'border-blue-500' : 'border-transparent'
+                  className={`w-6 h-6 cursor-pointer transition-all duration-300 ${
+                    selectedBorderMaskId === mask.maskId
+                      ? 'rounded-lg shadow-inner'
+                      : 'rounded-full'
                   }`}
                   style={{ backgroundColor: colorValue }}
                 />
@@ -226,35 +212,31 @@ const ColorEditor = ({ tile, tileMasks, setTileMaskColor, borderMasks, setBorder
           {colorRows.slice(0, visibleRows).map((row, rowIndex) => (
             <div key={rowIndex} className="flex gap-2">
               {row.map((paletteColor, index) => {
-                const isActive = (selectedMaskId && tileMasks.find(mask => {
-                  const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-                  return mask.id === selectedMaskId && maskColor === paletteColor;
-                })) || (selectedBorderMaskId && borderMasks?.find(mask => {
-                  const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-                  return mask.maskId === selectedBorderMaskId && maskColor === paletteColor;
-                }));
+                // Highlight the swatch if its color matches the selected mask's color
+                const isActive = currentSelectedColorValue === paletteColor;
                 const isHovered = hoveredPaletteColor === paletteColor;
                 const finalColor = previewMode && isHovered ? hoveredPaletteColor : paletteColor;
                 return (
                   <button
-                    key={`palette-color-${rowIndex}-${index}-${paletteColor}`}
-                    className={`w-6 h-6 transition-all duration-300 ease-in-out transform hover:scale-110
-                      ${isActive || isHovered
-                        ? "rounded-md ring-2 ring-[#bd5b4c]"
-                        : "rounded-full hover:rounded-full hover:ring-1 hover:ring-[#bd5b4c]"
-                      }`}
+                    key={index}
+                    className={`w-6 h-6 transition-all duration-200 ${
+                      isActive
+                        ? 'rounded-lg shadow-inner'
+                        : 'rounded-full hover:rounded-full'
+                    }`}
                     style={{ backgroundColor: finalColor }}
                     title={paletteColor}
                     onClick={() => handlePaletteColorSelect(paletteColor)}
                     onMouseEnter={() => {
-                      setPreviewMode(true);
-                      setHoveredPaletteColor(paletteColor);
+                      if (selectedMaskId || selectedBorderMaskId) {
+                        setPreviewMode(true);
+                        setHoveredPaletteColor(paletteColor);
+                      }
                     }}
                     onMouseLeave={() => {
                       setPreviewMode(false);
                       setHoveredPaletteColor(null);
                     }}
-                    disabled={colorLoading}
                   />
                 );
               })}

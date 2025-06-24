@@ -32,6 +32,7 @@ const TileCanvasView = () => {
     selectedBorder,
     rotateBlock,
     selectedMaskId,
+    selectedBorderMaskId,
     previewMode,
     hoveredPaletteColor,
   } = useTileSimulator();
@@ -252,46 +253,36 @@ const TileCanvasView = () => {
                 })}
               </div>
 
-              {/* Border Mask Layers */}
-              {selectedBorder &&
-                borderMasks?.map((mask) => (
-                  <div
-                    key={mask.maskId}
-                    data-mask-id={mask.maskId}
-                    className="absolute inset-0"
-                    style={{
-                      backgroundColor: typeof mask.color === 'object' ? mask.color.hexCode || '#ffffff' : mask.color,
-                      maskImage: mask.image ? `url(${mask.image})` : "none",
-                      WebkitMaskImage: mask.image
-                        ? `url(${mask.image})`
-                        : "none",
-                      maskSize: "100%",
-                      WebkitMaskSize: "100%",
-                      maskPosition: "center",
-                      WebkitMaskPosition: "center",
-                      maskRepeat: "no-repeat",
-                      WebkitMaskRepeat: "no-repeat",
-                      mixBlendMode: "source-in",
-                      zIndex: 3,
-                      clipPath:
-                        "polygon(0 0, 5% 0, 5% 5%, 0 5%, 0 0, 100% 0, 100% 5%, 95% 5%, 95% 0, 100% 0, 100% 100%, 95% 100%, 95% 95%, 100% 95%, 100% 100%, 0 100%, 0 95%, 5% 95%, 5% 100%, 0 100%)",
-                    }}
-                  />
-                ))}
+              {/* Border Masks Layer */}
+              {selectedBorder && borderMasks.length > 0 && (
+                <>
+                  {borderMasks.map(mask => {
+                    const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                    const isSelected = mask.maskId === selectedBorderMaskId;
+                    const previewColor = previewMode && hoveredPaletteColor;
+                    const displayColor = isSelected && previewColor ? previewColor : maskColor || '#ffffff';
 
-              {/* Border Frame Layer */}
-              {selectedBorder && (
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    backgroundImage: `url(${selectedBorder.image})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 8% 8%, 8% 92%, 92% 92%, 92% 8%, 8% 8%)',
-                    zIndex: 2,
-                  }}
-                />
+                    return (
+                      <div
+                        key={mask.maskId}
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          backgroundColor: displayColor,
+                          maskImage: `url(${mask.image})`,
+                          WebkitMaskImage: `url(${mask.image})`,
+                          maskSize: 'cover',
+                          WebkitMaskSize: 'cover',
+                          maskPosition: 'center',
+                          maskRepeat: 'no-repeat',
+                          // This path creates a thinner 5% frame
+                          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 5% 5%, 5% 95%, 95% 95%, 95% 5%, 5% 5%)',
+                          zIndex: 2,
+                          transition: "background-color 0.3s ease-in-out",
+                        }}
+                      />
+                    );
+                  })}
+                </>
               )}
 
               {/* Environment Image */}
@@ -441,46 +432,36 @@ const TileCanvasView = () => {
                   })}
                 </div>
 
-                {/* Border Mask Layers */}
-                {selectedBorder &&
-                  borderMasks?.map((mask) => (
-                    <div
-                      key={mask.maskId}
-                      data-mask-id={mask.maskId}
-                      className="absolute inset-0"
-                      style={{
-                        backgroundColor: typeof mask.color === 'object' ? mask.color.hexCode || '#ffffff' : mask.color,
-                        maskImage: mask.image ? `url(${mask.image})` : "none",
-                        WebkitMaskImage: mask.image
-                          ? `url(${mask.image})`
-                          : "none",
-                        maskSize: "100%",
-                        WebkitMaskSize: "100%",
-                        maskPosition: "center",
-                        WebkitMaskPosition: "center",
-                        maskRepeat: "no-repeat",
-                        WebkitMaskRepeat: "no-repeat",
-                        mixBlendMode: "source-in",
-                        zIndex: 3,
-                        clipPath:
-                          "polygon(0 0, 5% 0, 5% 5%, 0 5%, 0 0, 100% 0, 100% 5%, 95% 5%, 95% 0, 100% 0, 100% 100%, 95% 100%, 95% 95%, 100% 95%, 100% 100%, 0 100%, 0 95%, 5% 95%, 5% 100%, 0 100%)",
-                      }}
-                    />
-                  ))}
+                {/* Border Masks Layer */}
+                {selectedBorder && borderMasks.length > 0 && (
+                  <>
+                    {borderMasks.map(mask => {
+                      const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                      const isSelected = mask.maskId === selectedBorderMaskId;
+                      const previewColor = previewMode && hoveredPaletteColor;
+                      const displayColor = isSelected && previewColor ? previewColor : maskColor || '#ffffff';
 
-                {/* Border Frame Layer */}
-                {selectedBorder && (
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      backgroundImage: `url(${selectedBorder.image})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                      clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 8% 8%, 8% 92%, 92% 92%, 92% 8%, 8% 8%)',
-                      zIndex: 2,
-                    }}
-                  />
+                      return (
+                        <div
+                          key={mask.maskId}
+                          className="absolute inset-0 pointer-events-none"
+                          style={{
+                            backgroundColor: displayColor,
+                            maskImage: `url(${mask.image})`,
+                            WebkitMaskImage: `url(${mask.image})`,
+                            maskSize: 'cover',
+                            WebkitMaskSize: 'cover',
+                            maskPosition: 'center',
+                            maskRepeat: 'no-repeat',
+                            // This path creates a thinner 5% frame
+                            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 5% 5%, 5% 95%, 95% 95%, 95% 5%, 5% 5%)',
+                            zIndex: 2,
+                            transition: "background-color 0.3s ease-in-out",
+                          }}
+                        />
+                      );
+                    })}
+                  </>
                 )}
 
                 {/* Environment Image */}

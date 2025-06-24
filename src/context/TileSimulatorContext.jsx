@@ -177,34 +177,27 @@ export const TileSimulatorProvider = ({ children }) => {
   };
 
   const setBorderMaskColor = (maskId, newColor) => {
-    // Get the old color before updating
-    const oldColor = borderMasks.find(mask => mask.maskId === maskId)?.color;
-    const oldColorHex = typeof oldColor === 'object' ? oldColor.hexCode : oldColor;
-    
-    // Update borderMasks
+    // Update borderMasks state directly
     setBorderMasks(prevMasks =>
       prevMasks.map(mask =>
         mask.maskId === maskId ? { ...mask, color: newColor } : mask
       )
     );
-
-    // Update selectedTile's colorsUsed if it exists
-    setSelectedTile(prevTile => {
-      if (!prevTile) return prevTile;
+  
+    // Also update the selectedBorder object to keep it in sync
+    setSelectedBorder(prevBorder => {
+      if (!prevBorder) return prevBorder;
       return {
-        ...prevTile,
-        colorsUsed: prevTile.colorsUsed.map(colorId => {
-          // If this color ID corresponds to the old color, replace it with the new color
-          if (colorId === oldColorHex) {
-            return newColor;
-          }
-          return colorId;
-        })
+        ...prevBorder,
+        subMasks: prevBorder.subMasks.map(mask =>
+          mask.id === maskId ? { ...mask, color: newColor } : mask
+        )
       };
     });
   };
 
   const handleTileClick = (tile) => {
+    const currentCategory = categories.find(cat => cat._id === selectedCategory);
     if (selectedCategory === "Border Collection") {
       setSelectedBorder(tile.image);
     } else {
@@ -274,7 +267,8 @@ export const TileSimulatorProvider = ({ children }) => {
     previewMode,
     setPreviewMode,
     hoveredPaletteColor,
-    setHoveredPaletteColor
+    setHoveredPaletteColor,
+    handlePaletteColorSelect,
   };
 
   return (

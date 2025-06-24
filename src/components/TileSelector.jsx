@@ -51,7 +51,7 @@ const TileSelector = ({ onSelectTile }) => {
   const handleTileClick = (tile) => {
     if (currentCategory?.name === "Border Collection") {
       if (!selectedTile) {
-        alert("first select tile");
+        alert("Please select a tile first.");
         return;
       }
       setSelectedBorder(tile);
