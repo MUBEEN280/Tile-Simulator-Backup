@@ -97,7 +97,7 @@ const TileSelector = ({ onSelectTile }) => {
               console.log('Selected category ID:', e.target.value);
               setSelectedCategory(e.target.value);
             }}
-            className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-poppins text-sm"
+            className="w-full max-w-9xl p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-poppins text-sm"
           >
             <option value="">Select a category</option>
             {categories.map((category) => (

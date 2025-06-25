@@ -48,81 +48,86 @@ export default function TilePatternPreview({
           boxShadow: "none",
         }}
       >
-        {Array.from({ length: totalTiles }).map((_, index) => (
-          <div
-            key={index}
-            className="relative bg-white"
-            style={{
-              width: "100%",
-              aspectRatio: "1 / 1",
-              overflow: "hidden",
-              position: "relative",
-              margin: "0",
-              padding: "0",
-              border: "none",
-              outline: "none",
-              boxShadow: "none",
-            }}
-          >
-            {tileConfig?.tile?.image && (
-              <img
-                crossOrigin="anonymous"
-                src={getAbsoluteUrl(tileConfig.tile.image)}
-                alt={`Tile Block ${index + 1}`}
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{
-                  transform: `scale(2)`,
-                  transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < cols ? "0" : "100%"}`,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  objectFit: "cover",
-                  margin: "0",
-                  padding: "0",
-                  border: "none",
-                  outline: "none",
-                }}
-              />
-            )}
-            {tileConfig?.tile?.subMasks?.map((mask) => {
-              const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
-              const isSelected = mask.id === selectedMaskId;
-              const previewColor = previewMode && hoveredPaletteColor;
-              const displayColor = isSelected && previewColor ? previewColor : maskColor || '#ffffff';
-              return (
-                <div
-                  key={mask.id}
-                  className="absolute inset-0"
+        {Array.from({ length: totalTiles }).map((_, index) => {
+          const row = Math.floor(index / cols);
+          const col = index % cols;
+          const patternIndex = (col % 2) + 2 * (row % 2);
+          return (
+            <div
+              key={index}
+              className="relative bg-white"
+              style={{
+                width: "100%",
+                aspectRatio: "1 / 1",
+                overflow: "hidden",
+                position: "relative",
+                margin: "0",
+                padding: "0",
+                border: "none",
+                outline: "none",
+                boxShadow: "none",
+              }}
+            >
+              {tileConfig?.tile?.image && (
+                <img
+                  crossOrigin="anonymous"
+                  src={getAbsoluteUrl(tileConfig.tile.image)}
+                  alt={`Tile Block ${index + 1}`}
+                  className="absolute inset-0 w-full h-full object-cover"
                   style={{
-                    backgroundColor: displayColor,
-                    maskImage: mask.image ? `url(${mask.image})` : "none",
-                    WebkitMaskImage: mask.image ? `url(${mask.image})` : "none",
-                    maskSize: "cover",
-                    WebkitMaskSize: "cover",
-                    maskPosition: "center",
-                    WebkitMaskPosition: "center",
-                    maskRepeat: "no-repeat",
-                    WebkitMaskRepeat: "no-repeat",
-                    transform: `scale(2)`,
-                    transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < cols ? "0" : "100%"}`,
-                    zIndex: 1,
+                    transform: `scale(2) rotate(${tileConfig.rotations?.[patternIndex] || 0}deg)` ,
+                    transformOrigin: `${col % 2 === 0 ? "0" : "100%"} ${row % 2 === 0 ? "0" : "100%"}`,
                     position: "absolute",
                     top: 0,
                     left: 0,
                     right: 0,
                     bottom: 0,
+                    objectFit: "cover",
                     margin: "0",
                     padding: "0",
                     border: "none",
                     outline: "none",
                   }}
                 />
-              );
-            })}
-          </div>
-        ))}
+              )}
+              {tileConfig?.tile?.subMasks?.map((mask) => {
+                const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                const isSelected = mask.id === selectedMaskId;
+                const previewColor = previewMode && hoveredPaletteColor;
+                const displayColor = isSelected && previewColor ? previewColor : maskColor || '#ffffff';
+                return (
+                  <div
+                    key={mask.id}
+                    className="absolute inset-0"
+                    style={{
+                      backgroundColor: displayColor,
+                      maskImage: mask.image ? `url(${mask.image})` : "none",
+                      WebkitMaskImage: mask.image ? `url(${mask.image})` : "none",
+                      maskSize: "cover",
+                      WebkitMaskSize: "cover",
+                      maskPosition: "center",
+                      WebkitMaskPosition: "center",
+                      maskRepeat: "no-repeat",
+                      WebkitMaskRepeat: "no-repeat",
+                      transform: `scale(2) rotate(${tileConfig.rotations?.[patternIndex] || 0}deg)` ,
+                      transformOrigin: `${col % 2 === 0 ? "0" : "100%"} ${row % 2 === 0 ? "0" : "100%"}`,
+                      zIndex: 1,
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      margin: "0",
+                      padding: "0",
+                      border: "none",
+                      outline: "none",
+                    }}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
