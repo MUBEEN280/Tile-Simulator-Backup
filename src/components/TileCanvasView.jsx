@@ -15,7 +15,7 @@ const environments = [
 
 const thicknessToPx = {
   none: "0px",
-  thin: "2px",
+  thin: "2px", 
   thick: "6px",
 };
 
@@ -47,18 +47,33 @@ const TileCanvasView = () => {
     (env) => env.label === selectedEnvironment
   ) : null;
 
-  const gridSize = selectedSize === "8x8" ? 8 : 12;
-  const totalTiles = gridSize * gridSize;
+  // Custom grid size for preview
+  const previewCols = 10;
+  const previewRows = 6;
+  const previewTotalTiles = previewCols * previewRows;
 
+  // Only use 8x8 or 12x12 grid if environment is selected
+  const gridCols = selectedEnvironment ? (selectedSize === "8x8" ? 8 : 12) : previewCols;
+  const gridRows = selectedEnvironment ? (selectedSize === "8x8" ? 8 : 12) : previewRows;
+  const totalTiles = gridCols * gridRows;
+
+  // For proper tile blocks: 5 tiles per row, 3 per column, each tile is a 2x2 block
+  const blockCols = 5;
+  const blockRows = 3;
+  const totalBlocks = blockCols * blockRows;
+
+  // Define containerWidth and containerHeight before getTileSizeInPx
   const containerWidth = "100vw";
   const containerHeight = "100%";
 
+  // Make tile size smaller for preview
   const getTileSizeInPx = (size) => {
+    // Smaller base size for preview
+    if (!selectedEnvironment) return `${Math.floor(60)}px`;
     const baseSize = size === "8x8" ? 8 : 12;
-    const tileSize = containerWidth / baseSize;
-    return `${tileSize}px`;
+    const tileSize = 100 / baseSize; // percent for responsive
+    return `${tileSize}%`;
   };
-
   const tileSizePx = getTileSizeInPx(selectedSize);
   const groutThicknessPx = thicknessToPx[groutThickness] || "2px";
 
@@ -80,6 +95,9 @@ const TileCanvasView = () => {
       return newRotations;
     });
   };
+
+  // Always use 60 for the preview grid (10x6)
+  const previewParts = 60;
 
   useEffect(() => {
     setTileRotations(Array(totalTiles).fill(0));
@@ -155,18 +173,15 @@ const TileCanvasView = () => {
               <div
                 className="grid bg-white"
                 style={{
-                  gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                  gap: groutThickness !== "none" ? groutThicknessPx : "0px",
+                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                  gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+                  gap: groutThickness !== 'none' ? groutThicknessPx : '0px',
                   width: "100%",
                   height: "100%",
                   backgroundColor: groutColor,
                 }}
               >
                 {Array.from({ length: totalTiles }).map((_, index) => {
-                  const patternIndex =
-                    (index % 2) + 2 * (Math.floor(index / gridSize) % 2);
-                  const bgPos = tileStyles[patternIndex];
-
                   return (
                     <div
                       key={index}
@@ -195,7 +210,9 @@ const TileCanvasView = () => {
                             className="absolute inset-0 w-full h-full object-cover"
                             style={{
                               transform: `scale(2)`,
-                              transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridSize ? "0" : "100%"}`,
+                              transformOrigin: `${(index % gridCols) % 2 === 0 ? "0" : "100%"} ${
+                                Math.floor(index / gridCols) % 2 === 0 ? "0" : "100%"
+                              }`,
                               backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                             }}
                             onError={(e) => {
@@ -231,9 +248,9 @@ const TileCanvasView = () => {
                                 maskRepeat: "no-repeat",
                                 WebkitMaskRepeat: "no-repeat",
                                 transform: `scale(2)`,
-                                transformOrigin: `${
-                                  index % 2 === 0 ? "0" : "100%"
-                                } ${index < gridSize ? "0" : "100%"}`,
+                                transformOrigin: `${(index % gridCols) % 2 === 0 ? "0" : "100%"} ${
+                                  Math.floor(index / gridCols) % 2 === 0 ? "0" : "100%"
+                                }`,
                                 zIndex: 1,
                                 transition: "background-color 0.3s ease-in-out",
                               }}
@@ -323,18 +340,15 @@ const TileCanvasView = () => {
                 <div
                   className="grid bg-white"
                   style={{
-                    gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                    gap: groutThickness !== "none" ? groutThicknessPx : "0px",
+                    gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                    gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+                    gap: groutThickness !== 'none' ? groutThicknessPx : '0px',
                     width: "100%",
                     height: "100%",
                     backgroundColor: groutColor,
                   }}
                 >
                   {Array.from({ length: totalTiles }).map((_, index) => {
-                    const patternIndex =
-                      (index % 2) + 2 * (Math.floor(index / gridSize) % 2);
-                    const bgPos = tileStyles[patternIndex];
-
                     return (
                       <div
                         key={index}
@@ -363,7 +377,9 @@ const TileCanvasView = () => {
                               className="absolute inset-0 w-full h-full object-cover"
                               style={{
                                 transform: `scale(2)`,
-                                transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridSize ? "0" : "100%"}`,
+                                transformOrigin: `${(index % gridCols) % 2 === 0 ? "0" : "100%"} ${
+                                  Math.floor(index / gridCols) % 2 === 0 ? "0" : "100%"
+                                }`,
                                 backgroundColor: selectedColor || (selectedTile?.colorsUsed?.[0] || "#ffffff"),
                               }}
                               onError={(e) => {
@@ -399,9 +415,9 @@ const TileCanvasView = () => {
                                   maskRepeat: "no-repeat",
                                   WebkitMaskRepeat: "no-repeat",
                                   transform: `scale(2)`,
-                                  transformOrigin: `${
-                                    index % 2 === 0 ? "0" : "100%"
-                                  } ${index < gridSize ? "0" : "100%"}`,
+                                  transformOrigin: `${(index % gridCols) % 2 === 0 ? "0" : "100%"} ${
+                                    Math.floor(index / gridCols) % 2 === 0 ? "0" : "100%"
+                                  }`,
                                   zIndex: 1,
                                   transition: "background-color 0.3s ease-in-out",
                                 }}

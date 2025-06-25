@@ -155,17 +155,22 @@ const TileSelector = ({ onSelectTile }) => {
           <div className="flex gap-2">
             {["8x8", "12x12"].map((size) => {
               const isSelected = selectedSize === size;
-
+              const isDisabled = !selectedEnvironment;
               return (
                 <button
                   key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={` py-1 px-10 rounded-md font-poppins font-light text-sm transition-all duration-300 ease-in-out
+                  onClick={() => {
+                    if (!isDisabled) setSelectedSize(size);
+                  }}
+                  disabled={isDisabled}
+                  className={`py-1 px-10 rounded-md font-poppins font-light text-sm transition-all duration-300 ease-in-out
             ${
               isSelected
                 ? "bg-black text-white"
                 : "bg-white border border-gray-200 shadow-sm hover:bg-black hover:text-white"
-            }`}
+            }
+            ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={isDisabled ? "Select an environment first" : size}
                 >
                   {size}
                 </button>
