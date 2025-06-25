@@ -23,6 +23,7 @@ const TileCanvasView = () => {
   const {
     selectedTile,
     selectedColor,
+    setSelectedTile,
     selectedSize,
     selectedEnvironment,
     setSelectedEnvironment,
@@ -91,7 +92,7 @@ const TileCanvasView = () => {
         colorsUsed: [selectedColor, ...(prev?.colorsUsed || []).slice(1)]
       }));
     }
-  }, [selectedColor]);
+  }, [selectedColor, setSelectedTile]);
 
   if (!selectedTile) {
     return (
