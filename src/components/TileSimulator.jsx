@@ -24,7 +24,7 @@ const TileSimulator = () => {
     selectedBorder,
   } = useTileSimulator();
   return (
-    <div className="min-h-screen  max-w-9xl p-3 lg:p-0 m-auto grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-0">
+    <div className="min-h-screen  max-w-9xl p-3 lg:p-0 m-auto grid grid-cols-1 lg:grid-cols-[0.8fr_2.2fr] gap-0">
       {/* Tile Selection */}
       <div
         className="flex flex-col bg-gray-50 p-2"

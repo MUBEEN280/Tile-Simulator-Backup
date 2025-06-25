@@ -4,6 +4,15 @@ import { IoMdClose } from "react-icons/io";
 import { useForm } from "react-hook-form";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { useTileSimulator } from "../context/TileSimulatorContext";
+import TilePatternPreview from "./TilePatternPreview";
+
+// Helper to ensure absolute URLs for images
+const getAbsoluteUrl = (src) => {
+  if (!src) return "";
+  if (src.startsWith("http")) return src;
+  return window.location.origin + src;
+};
 
 export default function TileModals({ isOpen, onClose, tileConfig }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -22,6 +31,9 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
     height: window.innerHeight,
   });
   const tilePatternRef = useRef(null);
+  // Add a new ref for the environment preview
+  const tileEnvironmentRef = useRef(null);
+  const { tileMasks, selectedMaskId, previewMode, hoveredPaletteColor } = useTileSimulator();
 
   // Handle window resize
   useEffect(() => {
@@ -96,57 +108,58 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
 
   const onSubmit = async (data) => {
     try {
-      console.log("Generating PDF...");
-      const pdf = await generatePDF(data);
-      const pdfBlob = pdf.output("blob");
-      console.log('PDF generated successfully');
-
-      // Get the currently selected tile image
-      let selectedTileImage = null;
-      if (tileConfig?.tile?.image) {
+      // Generate base64 images for tile pattern and environment
+      let tilePatternImage = null;
+      let tileEnvironmentImage = null;
+      // Use html2canvas for tile pattern image from the hidden preview div
+      if (tilePatternRef && tilePatternRef.current) {
+        const patternDiv = tilePatternRef.current;
+        const oldPatternStyle = patternDiv.style.cssText;
+        patternDiv.style.visibility = "visible";
+        patternDiv.style.left = "0";
+        patternDiv.style.display = "block";
+        await waitForImagesToLoad(patternDiv);
+        await new Promise(resolve => setTimeout(resolve, 200));
         try {
-          // Get the current tile image URL
-          const currentTileImageUrl = tileConfig.tile.image;
-          console.log("Capturing selected tile image:", currentTileImageUrl);
-          
-          // Fetch and convert the image
-          const response = await fetch(currentTileImageUrl);
-          const blob = await response.blob();
-          
-          // Create a temporary canvas to compress the image
-          const img = new Image();
-          img.src = URL.createObjectURL(blob);
-          await new Promise((resolve) => {
-            img.onload = resolve;
+          const patternCanvas = await html2canvas(patternDiv, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: null
           });
-          
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Maximum width for the image
-          const scale = Math.min(1, MAX_WIDTH / img.width);
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          // Convert to base64 with compression
-          selectedTileImage = canvas.toDataURL('image/jpeg', 0.6); // 60% quality
-          console.log("Selected tile image captured and compressed successfully");
-          
-          // Clean up
-          URL.revokeObjectURL(img.src);
-        } catch (error) {
-          console.error("Error capturing selected tile image:", error);
-          alert("Error capturing tile image. Please try again.");
-          return;
+          tilePatternImage = patternCanvas.toDataURL('image/png');
+        } catch (err) {
+          console.error('Error capturing Tile Pattern with html2canvas:', err);
         }
-      } else {
-        console.error("No tile image selected");
-        alert("Please select a tile pattern first.");
+        patternDiv.style.cssText = oldPatternStyle;
+      }
+      // --- Fix: Temporarily show hidden tile environment preview ---
+      if (tileConfig?.environment && tileEnvironmentRef && tileEnvironmentRef.current) {
+        const envDiv = tileEnvironmentRef.current;
+        const oldEnvStyle = envDiv.style.cssText;
+        // Ensure the hidden preview is visible and on-screen for screenshot
+        envDiv.style.visibility = "visible";
+        envDiv.style.left = "0";
+        envDiv.style.display = "block"; // Ensure it is displayed
+        await waitForImagesToLoad(envDiv);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        try {
+          const envCanvas = await html2canvas(envDiv, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: null
+          });
+          tileEnvironmentImage = envCanvas.toDataURL('image/png');
+        } catch (err) {
+          console.error('Error capturing Tile Environment with html2canvas:', err);
+        }
+        // Restore the original style
+        envDiv.style.cssText = oldEnvStyle;
+      }
+      // Prepare request data with all fields
+      if (!tilePatternImage) {
+        alert("Tile pattern image could not be generated. Please make sure the tile preview is visible before submitting.");
         return;
       }
-
-      // Prepare request data with only essential fields
       const requestData = {
         name: data.name,
         email: data.email,
@@ -154,11 +167,11 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
         referenceNumber: data.reference || "N/A",
         tileQuantity: data.quantity,
         tileSize: data.tileSize,
-        image: selectedTileImage, // Add the compressed image
-        tileName: tileConfig?.tile?.name || "N/A",
-        tileColor: tileConfig?.tile?.color || tileConfig?.color || "N/A"
+        tilePatternImage,
+        tileConfig,
+        // For backward compatibility, also send the selected tile image as 'image'
+        image: tileConfig?.tile?.image || ""
       };
-
       // Send data to API
       const response = await fetch("http://localhost:5000/api/tile-submissions", {
         method: "POST",
@@ -186,7 +199,9 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
       const result = await response.json();
       console.log("Success:", result);
       
-      // Download PDF
+      // Generate PDF and download
+      const pdf = await generatePDF(data, tilePatternImage, tileEnvironmentImage);
+      const pdfBlob = pdf.output("blob");
       const blobUrl = URL.createObjectURL(pdfBlob);
       const downloadLink = document.createElement("a");
       downloadLink.href = blobUrl;
@@ -411,7 +426,7 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
     );
   }
 
-  const generatePDF = async (formData) => {
+  const generatePDF = async (formData, tilePatternImage, tileEnvironmentImage) => {
     try {
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -494,41 +509,36 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
       }
 
       // Add tile pattern to PDF using the captured preview image
-      pdf.setFontSize(14);
-      pdf.text("Tile Pattern", pageWidth / 2, yPosition, { align: "center" });
-      yPosition += 10;
-
-      let tilePreviewImage = null;
-      if (tilePatternRef && tilePatternRef.current) {
-        console.log('Tile Pattern ref found, waiting for images to load...');
-        await waitForImagesToLoad(tilePatternRef.current);
-        console.log('All images loaded, capturing with html2canvas...');
-        await new Promise(resolve => setTimeout(resolve, 200));
-        try {
-          const tileCanvas = await html2canvas(tilePatternRef.current, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: null
-          });
-          tilePreviewImage = tileCanvas.toDataURL('image/png');
-          console.log('Tile Pattern image captured:', tilePreviewImage.slice(0, 100));
-        } catch (err) {
-          console.error('Error capturing Tile Pattern with html2canvas:', err);
-        }
-      } else {
-        console.error('Tile Pattern ref is missing or not attached to the element!');
+      // --- Begin side-by-side image row ---
+      // --- Side-by-side layout ---
+      const imageRowY = yPosition;
+      const imageWidth = 70;
+      const imageHeight = 70;
+      const gap = 20;
+      const leftX = (pageWidth / 2) - imageWidth - (gap / 2);
+      const rightX = (pageWidth / 2) + (gap / 2);
+      // Headings above images
+      if (tilePatternImage) {
+        pdf.setFontSize(14);
+        pdf.text("Tile Pattern", leftX + imageWidth / 2, imageRowY, { align: "center" });
       }
-
-      if (tilePreviewImage) {
-        const patternWidth = 70;
-        const x = (pageWidth - patternWidth) / 2;
-        pdf.addImage(tilePreviewImage, 'PNG', x, yPosition, patternWidth, patternWidth);
-        yPosition += patternWidth + 10;
+      if (tileEnvironmentImage) {
+        pdf.setFontSize(14);
+        pdf.text("Tile Environment", rightX + imageWidth / 2, imageRowY, { align: "center" });
       }
+      // Images side by side
+      const imagesY = imageRowY + 8;
+      if (tilePatternImage) {
+        pdf.addImage(tilePatternImage, 'PNG', leftX, imagesY, imageWidth, imageHeight);
+      }
+      if (tileEnvironmentImage) {
+        pdf.addImage(tileEnvironmentImage, 'PNG', rightX, imagesY, imageWidth, imageHeight);
+      }
+      // Move yPosition below the images for the next section
+      yPosition = imagesY + imageHeight + 10;
+      // --- End side-by-side image row ---
 
       // Thank You Section (immediately after images)
-      yPosition += 10;
       pdf.setFontSize(16);
       pdf.setTextColor(189, 91, 76); // #BD5B4C or your brand color
       pdf.text("Thank You!", pageWidth / 2, yPosition, { align: "center" });
@@ -568,9 +578,16 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
   // This ensures html2canvas can always find the element in the DOM
   // and the ref is always attached, even if the modal is closed.
   // The rendering logic must match the visible tile pattern preview.
-  const gridCols = tileConfig?.size === "8x8" ? 9 : 12;
-  const gridRows = tileConfig?.size === "8x8" ? 6 : 9;
-  const totalTiles = gridCols * gridRows;
+  // For the hidden tile pattern preview (PDF), use the same grid size as the environment
+  const pdfGridCols = tileConfig?.size === "8x8" ? 8 : 12;
+  const pdfGridRows = tileConfig?.size === "8x8" ? 8 : 12;
+  const pdfTotalTiles = pdfGridCols * pdfGridRows;
+
+  // For the visible Tile Pattern preview (in the modal):
+  // Change the gridCols, gridRows, and totalTiles to match the environment (8x8 or 12x12)
+  const visiblePatternCols = tileConfig?.size === "8x8" ? 8 : 12;
+  const visiblePatternRows = tileConfig?.size === "8x8" ? 8 : 12;
+  const visiblePatternTotalTiles = visiblePatternCols * visiblePatternRows;
 
   if (!isOpen) return null;
 
@@ -667,98 +684,32 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
 
             <div
               ref={previewRef}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-10 mb-8"
+              className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-10 mb-8"
             >
               {/* Tile Pattern Without Environment */}
               <div className="rounded-lg">
                 <h3 className="mb-1 font-poppins">Tile Pattern</h3>
                 <div
-                  className="w-full rounded-lg overflow-hidden relative"
+                  className="w-full rounded-lg overflow-hidden relative aspect-square"
                   style={{
                     position: "relative",
                     overflow: "hidden",
-                    height: "300px",
                     width: "100%",
+                    height: "auto",
+                    aspectRatio: "1 / 1",
+                    maxWidth: "400px",
+                    maxHeight: "400px",
                   }}
                 >
-                  <div className="relative w-full h-full">
-                    <div
-                      className="grid bg-white"
-                      style={{
-                        gridTemplateColumns: `repeat(${tileConfig?.size === "8x8" ? 9 : 12}, minmax(0, 1fr))`,
-                        gridTemplateRows: `repeat(${tileConfig?.size === "8x8" ? 6 : 9}, minmax(0, 1fr))`,
-                        gap: "0px",
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: tileConfig?.groutColor || "#333333",
-                        position: "relative",
-                        aspectRatio: "1 / 1",
-                        maxWidth: "100%",
-                        maxHeight: "100%",
-                        margin: "auto",
-                      }}
-                    >
-                      {Array.from({ length: (tileConfig?.size === "8x8" ? 9 : 12) * (tileConfig?.size === "8x8" ? 6 : 9) }).map((_, index) => {
-                        const patternIndex = (index % 2) + 2 * (Math.floor(index / (tileConfig?.size === "8x8" ? 9 : 12)) % 2);
-                        return (
-                          <div
-                            key={index}
-                            className="relative bg-white"
-                            style={{
-                              width: "100%",
-                              aspectRatio: "1 / 1",
-                              overflow: "hidden",
-                              position: "relative",
-                            }}
-                          >
-                            {tileConfig?.tile?.image && (
-                              <img
-                                crossOrigin="anonymous"
-                                src={tileConfig.tile.image}
-                                alt={`Tile Block ${index + 1}`}
-                                className="absolute inset-0 w-full h-full object-cover"
-                                style={{
-                                  transform: `scale(2)`,
-                                  transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < (tileConfig?.size === "8x8" ? 9 : 12) ? "0" : "100%"}`,
-                                  position: "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  objectFit: "cover",
-                                }}
-                              />
-                            )}
-                            {tileConfig?.tile?.subMasks?.map((mask) => (
-                              <div
-                                key={mask.id}
-                                className="absolute inset-0"
-                                style={{
-                                  backgroundColor: mask.color,
-                                  maskImage: mask.image ? `url(${mask.image})` : "none",
-                                  WebkitMaskImage: mask.image ? `url(${mask.image})` : "none",
-                                  maskSize: "cover",
-                                  WebkitMaskSize: "cover",
-                                  maskPosition: "center",
-                                  WebkitMaskPosition: "center",
-                                  maskRepeat: "no-repeat",
-                                  WebkitMaskRepeat: "no-repeat",
-                                  transform: `scale(2)`,
-                                  transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < (tileConfig?.size === "8x8" ? 9 : 12) ? "0" : "100%"}`,
-                                  zIndex: 1,
-                                  position: "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                }}
-                              />
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <TilePatternPreview
+                    tileConfig={tileConfig}
+                    selectedMaskId={selectedMaskId}
+                    previewMode={previewMode}
+                    hoveredPaletteColor={hoveredPaletteColor}
+                    gridCols={visiblePatternCols}
+                    gridRows={visiblePatternRows}
+                    style={{ width: "100%", height: "100%" }}
+                  />
                 </div>
               </div>
 
@@ -767,27 +718,33 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
                 <div className="rounded-lg">
                   <h3 className="mb-1 font-poppins">Tile Environment</h3>
                   <div
-                    className="w-full rounded-lg overflow-hidden relative"
+                    className="w-full rounded-lg overflow-hidden relative aspect-square"
                     style={{
                       position: "relative",
                       overflow: "hidden",
-                      height: "100%",
-                      maxHeight: "300px",
+                      width: "100%",
+                      height: "auto",
+                      aspectRatio: "1 / 1",
+                      maxWidth: "400px",
+                      maxHeight: "400px",
                     }}
                   >
                     <img
-                      src={tileConfig.environment.image}
+                      src={getAbsoluteUrl(tileConfig.environment.image)}
                       alt="Room preview"
                       className="w-full h-full object-cover absolute inset-0"
                       style={{ zIndex: 3 }}
                     />
-                    <div className="relative w-full max-h-[300px]">
+                    <div className="relative w-ful">
                       <div
                         className="grid bg-white"
                         style={{
                           gridTemplateColumns: `repeat(${tileConfig?.size === "8x8" ? 8 : 12}, 1fr)`,
                           gridTemplateRows: `repeat(${tileConfig?.size === "8x8" ? 8 : 12}, 1fr)`,
-                          gap: "0",
+                          gap: "0px",
+                          gridGap: "0px",
+                          rowGap: "0px",
+                          columnGap: "0px",
                           width: "100%",
                           height: "100%",
                           backgroundColor: tileConfig?.groutColor || "#333333",
@@ -797,59 +754,84 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
                           maxHeight: "100%",
                           margin: "auto",
                           display: "grid",
-                          gridGap: "0",
                           padding: "0",
                           boxShadow: "none",
                         }}
                       >
-                        {Array.from({ length: tileConfig?.size === "8x8" ? 64 : 144 }).map((_, index) => (
-                          <div
-                            key={index}
-                            className="relative bg-white"
-                            style={{
-                              aspectRatio: "1 / 1",
-                              transform: `rotate(${index % 2 === 0 ? "0deg" : "180deg"})`,
-                              boxShadow: "none",
-                            }}
-                          >
-                            {tileConfig?.tile?.image && (
-                              <img
-                                crossOrigin="anonymous"
-                                src={tileConfig.tile.image}
-                                alt={`Tile Block ${index + 1}`}
-                                className="absolute inset-0 w-full h-full object-cover"
-                                style={{
-                                  transform: `scale(2)`,
-                                  transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < (tileConfig?.size === "8x8" ? 8 : 12) ? "0" : "100%"}`,
-                                  opacity: 0.8,
-                                  boxShadow: "none",
-                                }}
-                              />
-                            )}
-                            {tileConfig?.tile?.subMasks?.map((mask) => (
-                              <div
-                                key={mask.id}
-                                className="absolute inset-0"
-                                style={{
-                                  backgroundColor: mask.color,
-                                  maskImage: mask.image ? `url(${mask.image})` : "none",
-                                  WebkitMaskImage: mask.image ? `url(${mask.image})` : "none",
-                                  maskSize: "cover",
-                                  WebkitMaskSize: "50px",
-                                  maskPosition: "center",
-                                  WebkitMaskPosition: "center",
-                                  maskRepeat: "no-repeat",
-                                  WebkitMaskRepeat: "no-repeat",
-                                  transform: `scale(2)`,
-                                  transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < (tileConfig?.size === "8x8" ? 8 : 12) ? "0" : "100%"}`,
-                                  opacity: 0.8,
-                                  zIndex: 1,
-                                  boxShadow: "none",
-                                }}
-                              />
-                            ))}
-                          </div>
-                        ))}
+                        {Array.from({ length: tileConfig?.size === "8x8" ? 64 : 144 }).map((_, index) => {
+                          const columns = tileConfig?.size === "8x8" ? 8 : 12;
+                          const patternIndex = (index % 2) + 2 * (Math.floor(index / columns) % 2);
+                          const rotation = tileConfig.rotations?.[patternIndex] || 0;
+                          return (
+                            <div
+                              key={index}
+                              className="relative bg-white"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                aspectRatio: "1 / 1",
+                                margin: "0",
+                                padding: "0",
+                                border: "none",
+                                outline: "none",
+                                boxShadow: "none",
+                                overflow: "hidden",
+                                position: "relative",
+                              }}
+                            >
+                              {tileConfig?.tile?.image && (
+                                <img
+                                  crossOrigin="anonymous"
+                                  src={getAbsoluteUrl(tileConfig.tile.image)}
+                                  alt={`Tile Block ${index + 1}`}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  style={{
+                                    transform: `scale(2) rotate(${rotation}deg)`,
+                                    transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < columns ? "0" : "100%"}`,
+                                    opacity: 0.8,
+                                    boxShadow: "none",
+                                    margin: "0",
+                                    padding: "0",
+                                    border: "none",
+                                    outline: "none",
+                                  }}
+                                />
+                              )}
+                              {tileConfig?.tile?.subMasks?.map((mask) => {
+                                const maskColor = typeof mask.color === 'object' ? mask.color.hexCode : mask.color;
+                                const isSelected = mask.id === selectedMaskId;
+                                const previewColor = previewMode && hoveredPaletteColor;
+                                const displayColor = isSelected && previewColor ? previewColor : maskColor || '#ffffff';
+                                return (
+                                  <div
+                                    key={mask.id}
+                                    className="absolute inset-0"
+                                    style={{
+                                      backgroundColor: displayColor,
+                                      maskImage: mask.image ? `url(${mask.image})` : "none",
+                                      WebkitMaskImage: mask.image ? `url(${mask.image})` : "none",
+                                      maskSize: "cover",
+                                      WebkitMaskSize: "50px",
+                                      maskPosition: "center",
+                                      WebkitMaskPosition: "center",
+                                      maskRepeat: "no-repeat",
+                                      WebkitMaskRepeat: "no-repeat",
+                                      transform: `scale(2) rotate(${rotation}deg)`,
+                                      transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < columns ? "0" : "100%"}`,
+                                      opacity: 0.8,
+                                      zIndex: 1,
+                                      boxShadow: "none",
+                                      margin: "0",
+                                      padding: "0",
+                                      border: "none",
+                                      outline: "none",
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1044,88 +1026,60 @@ export default function TileModals({ isOpen, onClose, tileConfig }) {
           position: "absolute",
           left: "-9999px",
           top: 0,
-          width: "300px",
-          height: "300px",
+          width: "400px",
+          height: "400px",
+          aspectRatio: "1 / 1",
           visibility: "hidden",
           pointerEvents: "none",
           zIndex: -1,
         }}
       >
-        <div className="relative w-full h-full">
-          <div
-            className="grid bg-white"
-            style={{
-              gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-              gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
-              gap: "0px",
-              width: "100%",
-              height: "100%",
-              backgroundColor: tileConfig?.groutColor || "#333333",
-              position: "relative",
-              aspectRatio: "1 / 1",
-              maxWidth: "100%",
-              maxHeight: "100%",
-              margin: "auto",
-            }}
-          >
-            {Array.from({ length: totalTiles }).map((_, index) => (
-              <div
-                key={index}
-                className="relative bg-white"
-                style={{
-                  width: "100%",
-                  aspectRatio: "1 / 1",
-                  overflow: "hidden",
-                  position: "relative",
-                }}
-              >
-                {tileConfig?.tile?.image && (
-                  <img
-                    crossOrigin="anonymous"
-                    src={tileConfig.tile.image}
-                    alt={`Tile Block ${index + 1}`}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{
-                      transform: `scale(2)`,
-                      transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridCols ? "0" : "100%"}`,
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      objectFit: "cover",
-                    }}
-                  />
-                )}
-                {tileConfig?.tile?.subMasks?.map((mask) => (
-                  <div
-                    key={mask.id}
-                    className="absolute inset-0"
-                    style={{
-                      backgroundColor: mask.color,
-                      maskImage: mask.image ? `url(${mask.image})` : "none",
-                      WebkitMaskImage: mask.image ? `url(${mask.image})` : "none",
-                      maskSize: "cover",
-                      WebkitMaskSize: "cover",
-                      maskPosition: "center",
-                      WebkitMaskPosition: "center",
-                      maskRepeat: "no-repeat",
-                      WebkitMaskRepeat: "no-repeat",
-                      transform: `scale(2)`,
-                      transformOrigin: `${index % 2 === 0 ? "0" : "100%"} ${index < gridCols ? "0" : "100%"}`,
-                      zIndex: 1,
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                    }}
-                  />
-                ))}
-              </div>
-            ))}
+        <TilePatternPreview
+          tileConfig={tileConfig}
+          selectedMaskId={selectedMaskId}
+          previewMode={previewMode}
+          hoveredPaletteColor={hoveredPaletteColor}
+          gridCols={visiblePatternCols}
+          gridRows={visiblePatternRows}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </div>
+      {/* --- Hidden tile environment preview for PDF --- */}
+      <div
+        ref={tileEnvironmentRef}
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+          width: "400px",
+          height: "400px",
+          aspectRatio: "1 / 1",
+          visibility: "hidden",
+          pointerEvents: "none",
+          zIndex: -1,
+        }}
+      >
+        {tileConfig?.environment && (
+          <div className="w-full rounded-lg overflow-hidden relative" style={{ position: "relative", overflow: "hidden", height: "100%", width: "100%", maxHeight: "400px" }}>
+            <img
+              src={getAbsoluteUrl(tileConfig.environment.image)}
+              alt="Room preview"
+              className="w-full h-full object-cover absolute inset-0"
+              style={{ zIndex: 3 }}
+            />
+            <div className="absolute inset-0 w-full h-full">
+              <TilePatternPreview
+                tileConfig={tileConfig}
+                selectedMaskId={selectedMaskId}
+                previewMode={previewMode}
+                hoveredPaletteColor={hoveredPaletteColor}
+                gridCols={visiblePatternCols}
+                gridRows={visiblePatternRows}
+                style={{ width: "100%", height: "100%", opacity: 0.8 }}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

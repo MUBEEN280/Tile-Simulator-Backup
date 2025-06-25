@@ -8,6 +8,8 @@ const tileSubmissionSchema = new mongoose.Schema({
   tileQuantity: { type: Number, required: true },
   tileSize: { type: String, required: true },
   image: { type: String, required: true }, // Base64 encoded tile pattern image
+  tilePatternImage: { type: String, required: true }, // base64 of tile grid preview
+  tileConfig: { type: Object, required: true }, // JSON of all tile settings
   createdAt: { type: Date, default: Date.now },
 });
 
